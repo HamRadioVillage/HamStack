@@ -1,0 +1,7 @@
+---
+- name: Restart LinBPQ
+  ansible.builtin.systemd:
+    name: linbpq
+    state: restarted
+    daemon_reload: true
+  when: hamstack_linbpq_autostart | bool

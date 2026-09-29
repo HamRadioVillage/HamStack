@@ -1,0 +1,63 @@
+---
+- name: Configure UniPager capability
+  when: hamstack_unipager_enabled | bool
+  block:
+    - name: Validate UniPager platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+        fail_msg: UniPager installation supports Debian/Raspbian family systems.
+
+    - name: Install UniPager repository prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - gnupg
+          - python3-debian
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_unipager_install | bool
+
+    - name: Download UniPager repository key
+      ansible.builtin.get_url:
+        url: "{{ hamstack_unipager_repo_key_url }}"
+        dest: /usr/share/keyrings/unipager.asc
+        mode: '0644'
+      when: hamstack_unipager_install | bool
+
+    - name: Remove legacy UniPager list repository file
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/unipager.list
+        state: absent
+      when: hamstack_unipager_install | bool
+
+    - name: Configure UniPager upstream repository
+      ansible.builtin.deb822_repository:
+        name: unipager
+        types:
+          - deb
+        uris:
+          - "{{ hamstack_unipager_repo_url }}"
+        suites:
+          - "{{ hamstack_unipager_repo_suite }}"
+        components:
+          - main
+        signed_by: /usr/share/keyrings/unipager.asc
+        state: present
+        enabled: true
+      when: hamstack_unipager_install | bool
+
+    - name: Install UniPager
+      ansible.builtin.apt:
+        name: unipager
+        state: present
+        update_cache: true
+      when: hamstack_unipager_install | bool
+
+    - name: Keep UniPager transmitter service operator-controlled by default
+      ansible.builtin.systemd:
+        name: "{{ hamstack_unipager_service }}"
+        enabled: "{{ hamstack_unipager_autostart | bool }}"
+        state: "{{ 'started' if hamstack_unipager_autostart | bool else 'stopped' }}"
+      failed_when: false

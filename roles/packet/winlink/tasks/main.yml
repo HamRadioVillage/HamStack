@@ -1,0 +1,90 @@
+---
+- name: Deploy Pat Winlink client
+  when: hamstack_winlink_enabled | bool
+  block:
+    - name: Validate Pat/Winlink inputs
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_winlink_callsign != 'N0CALL'
+          - ansible_facts['architecture'] in ['x86_64', 'aarch64', 'arm64', 'armv7l', 'armhf', 'i386', 'i686']
+        fail_msg: >-
+          Pat requires a real callsign and a supported Debian architecture.
+
+    - name: Map Pat release architecture
+      ansible.builtin.set_fact:
+        _hamstack_pat_arch: >-
+          {% if ansible_facts['architecture'] == 'x86_64' %}amd64
+          {% elif ansible_facts['architecture'] in ['aarch64', 'arm64'] %}arm64
+          {% elif ansible_facts['architecture'] in ['armv7l', 'armhf'] %}armhf
+          {% else %}i386{% endif %}
+
+    - name: Create Pat service group
+      ansible.builtin.group:
+        name: "{{ hamstack_winlink_group }}"
+        system: true
+      when: hamstack_winlink_manage_user | bool
+
+    - name: Create Pat service account
+      ansible.builtin.user:
+        name: "{{ hamstack_winlink_user }}"
+        group: "{{ hamstack_winlink_group }}"
+        system: true
+        create_home: true
+        groups:
+          - audio
+          - dialout
+        append: true
+        shell: /usr/sbin/nologin
+      when: hamstack_winlink_manage_user | bool
+
+    - name: Download Pat Debian package
+      ansible.builtin.get_url:
+        url: >-
+          https://github.com/la5nta/pat/releases/download/v{{ hamstack_winlink_version }}/pat_{{ hamstack_winlink_version }}_linux_{{ _hamstack_pat_arch | trim }}.deb
+        dest: "/tmp/pat_{{ hamstack_winlink_version }}_{{ _hamstack_pat_arch | trim }}.deb"
+        mode: '0644'
+
+    - name: Install Pat Debian package
+      ansible.builtin.apt:
+        deb: "/tmp/pat_{{ hamstack_winlink_version }}_{{ _hamstack_pat_arch | trim }}.deb"
+        state: present
+
+    - name: Create Pat persistent directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hamstack_winlink_user }}"
+        group: "{{ hamstack_winlink_group }}"
+        mode: '0750'
+      loop:
+        - "{{ hamstack_winlink_data_dir }}"
+        - "{{ hamstack_winlink_data_dir }}/mailbox"
+
+    - name: Render Pat configuration
+      ansible.builtin.template:
+        src: config.json.j2
+        dest: "{{ hamstack_winlink_data_dir }}/config.json"
+        owner: "{{ hamstack_winlink_user }}"
+        group: "{{ hamstack_winlink_group }}"
+        mode: '0600'
+      no_log: true
+      notify: Restart HamStack Winlink
+
+    - name: Install Pat systemd service
+      ansible.builtin.template:
+        src: hamstack-winlink.service.j2
+        dest: /etc/systemd/system/hamstack-winlink.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - Reload systemd for HamStack Winlink
+        - Restart HamStack Winlink
+
+    - name: Set Pat service state
+      ansible.builtin.systemd:
+        name: hamstack-winlink
+        enabled: "{{ hamstack_winlink_service_enabled | bool }}"
+        state: "{{ 'started' if hamstack_winlink_service_enabled | bool else 'stopped' }}"
+        daemon_reload: true

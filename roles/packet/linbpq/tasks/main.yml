@@ -1,0 +1,144 @@
+---
+- name: Configure LinBPQ packet node/BBS
+  when: hamstack_linbpq_enabled | bool
+  block:
+    - name: Derive LinBPQ node callsign
+      ansible.builtin.set_fact:
+        _hamstack_linbpq_node_callsign: >-
+          {{
+            hamstack_linbpq_node_callsign
+            if hamstack_linbpq_node_callsign | length > 0
+            else
+            hamstack_linbpq_callsign_base
+            ~ (
+                '-' ~ (hamstack_linbpq_node_ssid | string)
+                if hamstack_linbpq_node_ssid is not none and (hamstack_linbpq_node_ssid | int) > 0
+                else ''
+              )
+          }}
+
+    - name: Derive LinBPQ BBS callsign
+      ansible.builtin.set_fact:
+        _hamstack_linbpq_bbs_callsign: >-
+          {{
+            hamstack_linbpq_bbs_callsign
+            if hamstack_linbpq_bbs_callsign | length > 0
+            else
+            hamstack_linbpq_callsign_base
+            ~ (
+                '-' ~ (hamstack_linbpq_bbs_ssid | string)
+                if hamstack_linbpq_bbs_ssid is not none and (hamstack_linbpq_bbs_ssid | int) > 0
+                else ''
+              )
+          }}
+
+    - name: Validate LinBPQ identity and ports
+      ansible.builtin.assert:
+        that:
+          - hamstack_linbpq_callsign_base != "N0CALL" or hamstack_linbpq_node_callsign | length > 0
+          - _hamstack_linbpq_node_callsign | length > 0
+          - hamstack_linbpq_node_alias | length > 0
+          - hamstack_linbpq_node_ssid is none or (hamstack_linbpq_node_ssid | int) in range(0, 16)
+          - hamstack_linbpq_bbs_ssid is none or (hamstack_linbpq_bbs_ssid | int) in range(0, 16)
+          - not hamstack_linbpq_bbs_enabled or _hamstack_linbpq_bbs_callsign | length > 0
+          - hamstack_linbpq_ports | length > 0
+        fail_msg: >-
+          LinBPQ requires a node identity, node alias, and at least one KISS TCP
+          port. Supply complete callsigns or derive them from hamstack_callsign
+          plus node/BBS SSIDs.
+
+    - name: Validate LinBPQ port definitions
+      ansible.builtin.assert:
+        that:
+          - item.portnum is defined
+          - item.kiss_port is defined
+        fail_msg: "Each hamstack_linbpq_ports item requires portnum and kiss_port."
+      loop: "{{ hamstack_linbpq_ports }}"
+      loop_control:
+        label: "{{ item.id | default('port ' ~ (item.portnum | default('?') | string)) }}"
+
+    - name: Create LinBPQ service account
+      ansible.builtin.user:
+        name: "{{ hamstack_linbpq_service_user }}"
+        system: true
+        home: "{{ hamstack_linbpq_data_dir }}"
+        create_home: false
+        shell: /usr/sbin/nologin
+
+    - name: Create LinBPQ directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hamstack_linbpq_service_user }}"
+        group: "{{ hamstack_linbpq_service_user }}"
+        mode: "0755"
+      loop:
+        - "{{ hamstack_linbpq_install_dir }}"
+        - "{{ hamstack_linbpq_data_dir }}"
+
+    - name: Validate LinBPQ binary URL when HamStack installation is enabled
+      ansible.builtin.assert:
+        that:
+          - hamstack_linbpq_binary_url | length > 0
+        fail_msg: >-
+          HamStack does not redistribute LinBPQ. Set hamstack_linbpq_binary_url
+          to a compatible upstream binary, or set hamstack_linbpq_install false
+          and install the binary at hamstack_linbpq_binary_path yourself.
+      when: hamstack_linbpq_install | bool
+
+    - name: Download LinBPQ binary
+      ansible.builtin.get_url:
+        url: "{{ hamstack_linbpq_binary_url }}"
+        dest: "{{ hamstack_linbpq_binary_path }}"
+        checksum: "{{ hamstack_linbpq_binary_checksum if hamstack_linbpq_binary_checksum | length > 0 else omit }}"
+        owner: root
+        group: root
+        mode: "0755"
+      when: hamstack_linbpq_install | bool
+      notify: Restart LinBPQ
+
+    - name: Verify LinBPQ binary is present
+      ansible.builtin.stat:
+        path: "{{ hamstack_linbpq_binary_path }}"
+      register: _hamstack_linbpq_binary
+
+    - name: Fail when LinBPQ binary is missing
+      ansible.builtin.assert:
+        that:
+          - _hamstack_linbpq_binary.stat.exists
+          - _hamstack_linbpq_binary.stat.executable
+        fail_msg: "LinBPQ binary is missing or not executable at {{ hamstack_linbpq_binary_path }}."
+
+    - name: Render LinBPQ node configuration
+      ansible.builtin.template:
+        src: bpq32.cfg.j2
+        dest: "{{ hamstack_linbpq_config_path }}"
+        owner: "{{ hamstack_linbpq_service_user }}"
+        group: "{{ hamstack_linbpq_service_user }}"
+        mode: "0600"
+      no_log: "{{ hamstack_linbpq_telnet_users | length > 0 }}"
+      notify: Restart LinBPQ
+
+    - name: Install LinBPQ systemd service
+      ansible.builtin.template:
+        src: linbpq.service.j2
+        dest: /etc/systemd/system/linbpq.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart LinBPQ
+
+    - name: Enable and start LinBPQ
+      ansible.builtin.systemd:
+        name: linbpq
+        enabled: true
+        state: started
+        daemon_reload: true
+      when: hamstack_linbpq_autostart | bool
+
+    - name: Disable LinBPQ autostart when requested
+      ansible.builtin.systemd:
+        name: linbpq
+        enabled: false
+        daemon_reload: true
+      when: not (hamstack_linbpq_autostart | bool)

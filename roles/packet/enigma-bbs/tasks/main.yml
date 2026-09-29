@@ -1,0 +1,300 @@
+---
+- name: Deploy ENiGMA BBS IP-access service
+  when: hamstack_enigma_bbs_enabled | bool
+  block:
+    - name: Verify ENiGMA packet transport state
+      ansible.builtin.assert:
+        that:
+          - hamstack_enigma_bbs_packet_transport == "none"
+        fail_msg: >-
+          Graywolf KISS/AX.25 bridging is intentionally a future ENiGMA feature.
+          The supported scope provides IP Telnet, SSH, and WSS only; set
+          hamstack_enigma_bbs_packet_transport to none.
+
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Install ENiGMA bootstrap tooling
+      ansible.builtin.apt:
+        name:
+          - openssh-client
+          - python3-pexpect
+        state: present
+
+    - name: Create ENiGMA host directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "{{ hamstack_enigma_bbs_config_dir }}", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_config_dir }}/security", mode: "0700" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/config", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/config/security", mode: "0700" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/db", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/logs", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/filebase", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/art", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/mods", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/mail", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/caddy-data", mode: "0755" }
+        - { path: "{{ hamstack_enigma_bbs_data_dir }}/caddy-config", mode: "0755" }
+
+    - name: Check for legacy HamStack ENiGMA SSH host key
+      ansible.builtin.stat:
+        path: "{{ hamstack_enigma_bbs_config_dir }}/security/ssh_private_key.pem"
+      register: _hamstack_enigma_legacy_ssh_key
+
+    - name: Check for runtime ENiGMA SSH host key
+      ansible.builtin.stat:
+        path: "{{ hamstack_enigma_bbs_data_dir }}/config/security/hamstack_ssh_private_key.pem"
+      register: _hamstack_enigma_runtime_ssh_key
+
+    - name: Preserve existing HamStack ENiGMA SSH host key during runtime-config migration
+      ansible.builtin.copy:
+        src: "{{ hamstack_enigma_bbs_config_dir }}/security/ssh_private_key.pem"
+        dest: "{{ hamstack_enigma_bbs_data_dir }}/config/security/hamstack_ssh_private_key.pem"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when:
+        - _hamstack_enigma_legacy_ssh_key.stat.exists
+        - not _hamstack_enigma_runtime_ssh_key.stat.exists
+
+    - name: Generate ENiGMA SSH host key
+      ansible.builtin.command:
+        cmd: >-
+          ssh-keygen -q -t rsa -b 3072 -m PEM -N ''
+          -f {{ hamstack_enigma_bbs_data_dir }}/config/security/hamstack_ssh_private_key.pem
+        creates: "{{ hamstack_enigma_bbs_data_dir }}/config/security/hamstack_ssh_private_key.pem"
+
+    - name: Read ENiGMA bootstrap marker state
+      ansible.builtin.stat:
+        path: "{{ hamstack_enigma_bbs_data_dir }}/config/.hamstack-bootstrap-complete"
+      register: _hamstack_enigma_bootstrap_marker
+
+    - name: Discover ENiGMA generated menu files
+      ansible.builtin.find:
+        paths: "{{ hamstack_enigma_bbs_data_dir }}/config/menus"
+        patterns: "*.hjson"
+        file_type: file
+        recurse: true
+      register: _hamstack_enigma_menu_files
+
+    - name: Seed ENiGMA upstream config, art, and module trees
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - --entrypoint
+          - /bin/bash
+          - -v
+          - "{{ hamstack_enigma_bbs_data_dir }}/config:/enigma-bbs/config"
+          - -v
+          - "{{ hamstack_enigma_bbs_data_dir }}/art:/enigma-bbs/art"
+          - -v
+          - "{{ hamstack_enigma_bbs_data_dir }}/mods:/enigma-bbs/mods"
+          - "{{ hamstack_enigma_bbs_image }}"
+          - -lc
+          - |
+              set -euo pipefail
+              cp -a -n /enigma-bbs-pre/config/. /enigma-bbs/config/
+              cp -a -n /enigma-bbs-pre/art/. /enigma-bbs/art/
+              cp -a -n /enigma-bbs-pre/mods/. /enigma-bbs/mods/
+              rm -f /enigma-bbs/config/config.hjson
+      when: (_hamstack_enigma_menu_files.matched | default(0) | int) == 0
+      changed_when: true
+      register: _hamstack_enigma_bootstrap_seed
+
+    - name: Generate ENiGMA stock configuration with upstream wizard
+      ansible.builtin.expect:
+        command: >-
+          docker run --rm -it
+          --entrypoint /enigma-bbs/oputil.js
+          -v {{ hamstack_enigma_bbs_data_dir }}/config:/enigma-bbs/config
+          -v {{ hamstack_enigma_bbs_data_dir }}/art:/enigma-bbs/art
+          -v {{ hamstack_enigma_bbs_data_dir }}/mods:/enigma-bbs/mods
+          {{ hamstack_enigma_bbs_image }}
+          config new
+        responses:
+          'Create a new configuration\?.*': 'y'
+          'Configuration path:.*': '/enigma-bbs/config/config.hjson'
+          'BBS name:.*': "{{ hamstack_enigma_bbs_system_name }}"
+          'First message conference:.*': 'General'
+          'Conference description:.*': "{{ hamstack_enigma_bbs_description }}"
+          'First area in message conference:.*': 'General'
+          'Area description:.*': "{{ hamstack_enigma_bbs_description }}"
+          'Logging level:.*': ''
+        timeout: 60
+        echo: true
+      when: (_hamstack_enigma_menu_files.matched | default(0) | int) == 0
+      register: _hamstack_enigma_bootstrap_generate
+
+    - name: Read generated ENiGMA system configuration
+      ansible.builtin.stat:
+        path: "{{ hamstack_enigma_bbs_data_dir }}/config/config.hjson"
+      register: _hamstack_enigma_generated_config
+
+    - name: Rediscover ENiGMA generated menu files after bootstrap
+      ansible.builtin.find:
+        paths: "{{ hamstack_enigma_bbs_data_dir }}/config/menus"
+        patterns: "*.hjson"
+        file_type: file
+        recurse: true
+      register: _hamstack_enigma_generated_menu_files
+
+    - name: Verify ENiGMA upstream bootstrap completed
+      ansible.builtin.assert:
+        that:
+          - _hamstack_enigma_generated_config.stat.exists | default(false)
+          - (_hamstack_enigma_generated_config.stat.size | default(0) | int) > 0
+          - (_hamstack_enigma_generated_menu_files.matched | default(0) | int) > 0
+        fail_msg: >-
+          ENiGMA's upstream configuration wizard did not produce config.hjson
+          plus at least one non-empty menu HJSON file under config/menus.
+          Refusing to mark the runtime tree initialized.
+
+    - name: Mark ENiGMA upstream bootstrap complete
+      ansible.builtin.file:
+        path: "{{ hamstack_enigma_bbs_data_dir }}/config/.hamstack-bootstrap-complete"
+        state: touch
+        owner: root
+        group: root
+        mode: "0644"
+      when: not _hamstack_enigma_bootstrap_marker.stat.exists
+      register: _hamstack_enigma_bootstrap_mark
+
+    - name: Render HamStack ENiGMA configuration overlay
+      ansible.builtin.template:
+        src: config.hjson.j2
+        dest: "{{ hamstack_enigma_bbs_config_dir }}/hamstack-overlay.hjson"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_enigma_overlay
+
+    - name: Merge HamStack overlay into upstream-generated ENiGMA configuration
+      ansible.builtin.command:
+        argv:
+          - docker
+          - run
+          - --rm
+          - --entrypoint
+          - node
+          - -v
+          - "{{ hamstack_enigma_bbs_data_dir }}/config:/enigma-bbs/config"
+          - -v
+          - "{{ hamstack_enigma_bbs_config_dir }}/hamstack-overlay.hjson:/tmp/hamstack-overlay.hjson:ro"
+          - "{{ hamstack_enigma_bbs_image }}"
+          - -e
+          - |
+              const fs = require('fs');
+              const HJSON = require('hjson');
+              const _ = require('lodash');
+              const configPath = '/enigma-bbs/config/config.hjson';
+              const overlayPath = '/tmp/hamstack-overlay.hjson';
+              const base = HJSON.parse(fs.readFileSync(configPath, 'utf8'));
+              const overlay = HJSON.parse(fs.readFileSync(overlayPath, 'utf8'));
+              const merged = _.merge({}, base, overlay);
+              if (_.isEqual(base, merged)) {
+                console.log('unchanged');
+              } else {
+                fs.writeFileSync(configPath, HJSON.stringify(merged, { space: 2 }) + '\n');
+                console.log('changed');
+              }
+      register: _hamstack_enigma_config
+      changed_when: (_hamstack_enigma_config.stdout | trim) == 'changed'
+
+    - name: Render ENiGMA WSS Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_enigma_bbs_config_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_enigma_caddy_config
+
+    - name: Create ENiGMA private Docker network
+      community.docker.docker_network:
+        name: hamstack-enigma
+
+    - name: Run ENiGMA BBS container
+      community.docker.docker_container:
+        name: "{{ hamstack_enigma_bbs_container_name }}"
+        image: "{{ hamstack_enigma_bbs_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_enigma_bbs_autostart | bool else 'no' }}"
+        recreate: >-
+          {{ _hamstack_enigma_config.changed or
+             (_hamstack_enigma_bootstrap_generate.changed | default(false)) or
+             (_hamstack_enigma_bootstrap_mark.changed | default(false)) }}
+        networks:
+          - name: hamstack-enigma
+        published_ports:
+          - "{{ hamstack_enigma_bbs_telnet_bind }}:{{ hamstack_enigma_bbs_telnet_port }}:{{ hamstack_enigma_bbs_telnet_port }}"
+          - "{{ hamstack_enigma_bbs_ssh_bind }}:{{ hamstack_enigma_bbs_ssh_port }}:{{ hamstack_enigma_bbs_ssh_port }}"
+        volumes:
+          # Persist the whole upstream config tree after a one-time bootstrap.
+          # HamStack renders config.hjson into this tree after upstream has
+          # generated menu.hjson and its supporting first-run artifacts.
+          - "{{ hamstack_enigma_bbs_data_dir }}/config:/enigma-bbs/config"
+          - "{{ hamstack_enigma_bbs_data_dir }}/db:/enigma-bbs/db"
+          - "{{ hamstack_enigma_bbs_data_dir }}/logs:/enigma-bbs/logs"
+          - "{{ hamstack_enigma_bbs_data_dir }}/filebase:/enigma-bbs/filebase"
+          - "{{ hamstack_enigma_bbs_data_dir }}/art:/enigma-bbs/art"
+          - "{{ hamstack_enigma_bbs_data_dir }}/mods:/enigma-bbs/mods"
+          - "{{ hamstack_enigma_bbs_data_dir }}/mail:/mail"
+
+    - name: Verify ENiGMA stock and HamStack configuration are both visible
+      community.docker.docker_container_exec:
+        container: "{{ hamstack_enigma_bbs_container_name }}"
+        command: >-
+          sh -lc
+          'for f in
+             /enigma-bbs/config/config.hjson
+             /enigma-bbs/config/security/hamstack_ssh_private_key.pem;
+           do
+             if [ ! -s "$f" ]; then
+               echo "Missing required ENiGMA runtime file: $f" >&2;
+               exit 1;
+             fi;
+           done;
+           if ! find /enigma-bbs/config/menus -type f -name "*.hjson" -size +0c -print -quit 2>/dev/null | grep -q .; then
+             echo "Missing required ENiGMA generated menu files under /enigma-bbs/config/menus" >&2;
+             exit 1;
+           fi'
+      changed_when: false
+
+    - name: Verify ENiGMA main process survives startup
+      community.docker.docker_container_exec:
+        container: "{{ hamstack_enigma_bbs_container_name }}"
+        command: >-
+          sh -lc 'sleep 5; test "$(pm2 pid main)" -gt 0'
+      register: _hamstack_enigma_pm2_stable
+      changed_when: false
+      retries: 3
+      delay: 2
+      until: _hamstack_enigma_pm2_stable.rc == 0
+
+    - name: Run ENiGMA WSS TLS sidecar
+      community.docker.docker_container:
+        name: hamstack-enigma-caddy
+        image: "{{ hamstack_enigma_bbs_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_enigma_bbs_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_enigma_caddy_config.changed }}"
+        networks:
+          - name: hamstack-enigma
+        published_ports:
+          - "{{ hamstack_enigma_bbs_https_bind }}:{{ hamstack_enigma_bbs_https_port }}:443"
+        volumes:
+          - "{{ hamstack_enigma_bbs_config_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_enigma_bbs_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_enigma_bbs_data_dir }}/caddy-config:/config"

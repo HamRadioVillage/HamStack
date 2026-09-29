@@ -1,0 +1,10 @@
+---
+hamstack_netboot_enabled: false
+hamstack_netboot_image: nginx:alpine
+hamstack_netboot_container_name: hamstack-netboot
+hamstack_netboot_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/netboot' }}"
+hamstack_netboot_bind_address: 0.0.0.0
+hamstack_netboot_http_port: 8089
+hamstack_netboot_menu_title: HamStack Netboot
+hamstack_netboot_entries: []
+hamstack_netboot_autostart: true

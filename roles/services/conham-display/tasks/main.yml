@@ -1,0 +1,106 @@
+---
+- name: Deploy local/offline CONHAM display
+  when: hamstack_conham_display_enabled | bool
+  block:
+    - name: Validate CONHAM source mode
+      ansible.builtin.assert:
+        that:
+          - hamstack_conham_source_mode == 'mirror'
+        fail_msg: >-
+          CONHAM currently supports mirroring the rendered upstream site.
+          Git/Markdown-native building is outside the supported deployment
+          contract.
+
+    - name: Install CONHAM mirror dependencies
+      ansible.builtin.apt:
+        name:
+          - wget
+          - ca-certificates
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create CONHAM directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_conham_data_dir }}"
+        - "{{ hamstack_conham_data_dir }}/releases"
+        - "{{ hamstack_conham_data_dir }}/caddy-data"
+        - "{{ hamstack_conham_data_dir }}/caddy-config"
+
+    - name: Install CONHAM refresh script
+      ansible.builtin.template:
+        src: conham-refresh.sh.j2
+        dest: "{{ hamstack_conham_data_dir }}/conham-refresh.sh"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install CONHAM refresh systemd service
+      ansible.builtin.template:
+        src: conham-refresh.service.j2
+        dest: /etc/systemd/system/hamstack-conham-refresh.service
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_conham_service
+
+    - name: Install CONHAM refresh timer
+      ansible.builtin.template:
+        src: conham-refresh.timer.j2
+        dest: /etc/systemd/system/hamstack-conham-refresh.timer
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_conham_timer
+
+    - name: Reload systemd for CONHAM refresh units
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: _hamstack_conham_service.changed or _hamstack_conham_timer.changed
+
+    - name: Seed local CONHAM mirror when absent
+      ansible.builtin.command:
+        cmd: "{{ hamstack_conham_data_dir }}/conham-refresh.sh"
+      args:
+        creates: "{{ hamstack_conham_data_dir }}/current/index.html"
+
+    - name: Enable CONHAM refresh timer
+      ansible.builtin.systemd:
+        name: hamstack-conham-refresh.timer
+        enabled: "{{ hamstack_conham_autostart | bool }}"
+        state: "{{ 'started' if hamstack_conham_autostart | bool else 'stopped' }}"
+
+    - name: Render CONHAM Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_conham_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_conham_caddy
+
+    - name: Run CONHAM HTTPS static server
+      community.docker.docker_container:
+        name: hamstack-conham-caddy
+        image: "{{ hamstack_conham_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_conham_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_conham_caddy.changed }}"
+        published_ports:
+          - "{{ hamstack_conham_https_bind }}:{{ hamstack_conham_https_port }}:443"
+        volumes:
+          - "{{ hamstack_conham_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_conham_data_dir }}:/srv/conham:ro"
+          - "{{ hamstack_conham_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_conham_data_dir }}/caddy-config:/config"

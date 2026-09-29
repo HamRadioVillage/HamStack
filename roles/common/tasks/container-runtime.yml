@@ -1,0 +1,23 @@
+---
+- name: Verify supported container host platform
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == "Debian"
+    fail_msg: >-
+      HamStack's container runtime helper supports
+      Debian-family systems only.
+
+- name: Install container runtime dependencies
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - python3-docker
+    state: present
+    update_cache: true
+    cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+- name: Enable and start Docker
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started

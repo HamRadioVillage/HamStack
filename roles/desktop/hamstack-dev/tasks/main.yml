@@ -1,0 +1,76 @@
+---
+- name: Prepare HamStack development workstation
+  when: hamstack_dev_enabled | bool
+  block:
+    - name: Validate HamStack development workstation platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_dev_user | length > 0
+        fail_msg: >-
+          The HamStack development workstation role supports
+          Debian-family systems and requires hamstack_dev_user (normally
+          hamstack_operator_user).
+
+    - name: Read HamStack development user account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_dev_user }}"
+
+    - name: Derive HamStack development paths
+      ansible.builtin.set_fact:
+        _hamstack_dev_home: "{{ ansible_facts.getent_passwd[hamstack_dev_user][4] }}"
+        _hamstack_dev_repo: >-
+          {{ hamstack_dev_repo_path if hamstack_dev_repo_path | length > 0
+             else ansible_facts.getent_passwd[hamstack_dev_user][4] ~ '/hamstack' }}
+
+    - name: Derive HamStack development virtual environment path
+      ansible.builtin.set_fact:
+        _hamstack_dev_venv: >-
+          {{ hamstack_dev_venv_dir if hamstack_dev_venv_dir | length > 0
+             else _hamstack_dev_repo ~ '/.venv' }}
+
+    - name: Install HamStack development packages
+      ansible.builtin.apt:
+        name: "{{ hamstack_dev_packages + hamstack_dev_extra_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_dev_install_packages | bool
+
+    - name: Verify local HamStack source tree is present
+      ansible.builtin.stat:
+        path: "{{ _hamstack_dev_repo }}/requirements-dev.txt"
+      register: _hamstack_dev_requirements
+
+    - name: Require an already-provided HamStack source tree
+      ansible.builtin.assert:
+        that:
+          - _hamstack_dev_requirements.stat.exists
+        fail_msg: >-
+          HamStack source was not found at {{ _hamstack_dev_repo }}. This role
+          deliberately does not clone or update a Git repository; unpack/copy
+          the HamStack tree there first or set hamstack_dev_repo_path.
+
+    - name: Create HamStack development virtual environment
+      ansible.builtin.command:
+        cmd: "python3 -m venv {{ _hamstack_dev_venv }}"
+        creates: "{{ _hamstack_dev_venv }}/bin/python"
+      become_user: "{{ hamstack_dev_user }}"
+
+    - name: Install HamStack development Python requirements
+      ansible.builtin.pip:
+        requirements: "{{ _hamstack_dev_repo }}/requirements-dev.txt"
+        virtualenv: "{{ _hamstack_dev_venv }}"
+      become_user: "{{ hamstack_dev_user }}"
+      when: hamstack_dev_install_python_requirements | bool
+
+    - name: Install HamStack Ansible collections for development
+      ansible.builtin.command:
+        cmd: >-
+          {{ _hamstack_dev_venv }}/bin/ansible-galaxy collection install
+          -r {{ _hamstack_dev_repo }}/requirements.yml
+          --collections-path {{ _hamstack_dev_home }}/.ansible/collections
+      become_user: "{{ hamstack_dev_user }}"
+      changed_when: false
+      when: hamstack_dev_install_collections | bool

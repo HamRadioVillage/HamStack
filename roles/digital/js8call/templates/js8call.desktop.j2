@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=JS8Call
+Exec=env APPIMAGE_EXTRACT_AND_RUN=1 {{ hamstack_js8call_install_dir }}/JS8Call.AppImage{% for arg in hamstack_js8call_extra_args %} {{ arg }}{% endfor %}
+Terminal=false
+Categories=HamRadio;Network;
+X-GNOME-Autostart-enabled=true

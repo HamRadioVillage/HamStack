@@ -1,0 +1,21 @@
+---
+- name: Bootstrap HamStack node
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Check for optional HamStack Vault file
+      ansible.builtin.stat:
+        path: "{{ inventory_dir }}/group_vars/all/vault.yml"
+      delegate_to: localhost
+      become: false
+      register: _hamstack_vault_file
+
+    - name: Load optional HamStack Vault variables
+      ansible.builtin.include_vars:
+        file: "{{ inventory_dir }}/group_vars/all/vault.yml"
+      no_log: true
+      when: _hamstack_vault_file.stat.exists
+
+  roles:
+    - common

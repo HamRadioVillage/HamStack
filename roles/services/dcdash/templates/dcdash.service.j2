@@ -1,0 +1,37 @@
+[Unit]
+Description=DCDash contest scoreboard
+After=network.target
+
+[Service]
+Type=simple
+User={{ hamstack_dcdash_user }}
+Group={{ hamstack_dcdash_group }}
+UMask=0077
+WorkingDirectory={{ hamstack_dcdash_install_dir }}
+EnvironmentFile=/etc/default/dcdash
+ExecStartPre={{ hamstack_dcdash_install_dir }}/.venv/bin/python -c "from dcdash.security.cert_gen import generate_self_signed_cert; generate_self_signed_cert('{{ hamstack_dcdash_cert_file }}', '{{ hamstack_dcdash_key_file }}')"
+ExecStart={{ hamstack_dcdash_install_dir }}/.venv/bin/gunicorn -c {{ hamstack_dcdash_install_dir }}/gunicorn.conf.py --bind {{ hamstack_dcdash_bind_address }}:{{ hamstack_dcdash_port }} --certfile {{ hamstack_dcdash_cert_file }} --keyfile {{ hamstack_dcdash_key_file }} --workers 1 --threads 4 --timeout 30 --access-logfile - --error-logfile - "dcdash.app:create_app()"
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{ hamstack_dcdash_install_dir }} {{ hamstack_dcdash_db_path | dirname }} {{ hamstack_dcdash_reports_dir }} {{ hamstack_dcdash_backup_dir }} {{ hamstack_dcdash_cert_file | dirname }} {{ hamstack_dcdash_key_file | dirname }}
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=300
+StartLimitBurst=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dcdash
+
+[Install]
+WantedBy=multi-user.target

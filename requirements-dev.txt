@@ -1,0 +1,4 @@
+-r requirements-controller.txt
+ansible-lint
+yamllint
+Jinja2>=3.1

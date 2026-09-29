@@ -1,0 +1,513 @@
+---
+- name: Validate WPSD role inputs
+  ansible.builtin.assert:
+    that:
+      - hamstack_wpsd_callsign | string | length > 0
+      - hamstack_wpsd_callsign != 'N0CALL'
+      - hamstack_wpsd_modem | string | length > 0
+      - hamstack_wpsd_rx_frequency_mhz is not none
+      - hamstack_wpsd_tx_frequency_mhz is not none
+      - hamstack_wpsd_modes | difference(['dstar', 'dmr', 'ysf', 'p25', 'nxdn', 'm17', 'pocsag']) | length == 0
+      - hamstack_wpsd_display in ['none', 'oled']
+      - hamstack_wpsd_display != 'oled' or (hamstack_wpsd_oled_type | int) in [3, 6]
+      - "'dmr' not in hamstack_wpsd_modes or hamstack_wpsd_dmr_id is not none"
+      - "'nxdn' not in hamstack_wpsd_modes or hamstack_wpsd_nxdn_id is not none"
+      - "not (hamstack_wpsd_manage_dmr_custom_network | bool) or 'dmr' in hamstack_wpsd_modes"
+      - "not (hamstack_wpsd_manage_dmr_custom_network | bool) or hamstack_wpsd_dmr_custom_network_name | string | length > 0"
+      - "not (hamstack_wpsd_manage_dmr_custom_network | bool) or hamstack_wpsd_dmr_custom_network_address | string | length > 0"
+      - "not (hamstack_wpsd_manage_dmr_custom_network | bool) or (hamstack_wpsd_dmr_custom_network_port | int) > 0"
+      - "not (hamstack_wpsd_manage_dmr_custom_network | bool) or (hamstack_wpsd_dmr_custom_network_port | int) <= 65535"
+      - "not (hamstack_wpsd_manage_dmr_custom_network | bool) or vault_hamstack_wpsd_dmr_custom_network_password | default('') | string | length > 0"
+    fail_msg: >-
+      WPSD requires a real callsign, an exact WPSD modem identifier, RX/TX
+      frequency, and IDs for modes that require them. A managed custom DMR
+      network also requires DMR mode, a network name/address/port, and
+      vault_hamstack_wpsd_dmr_custom_network_password in the encrypted Vault.
+
+- name: Check for WPSD installation marker
+  ansible.builtin.stat:
+    path: /usr/local/sbin/wpsd-services
+  register: hamstack_wpsd_services
+
+- name: Check for WPSD MMDVMHost configuration
+  ansible.builtin.stat:
+    path: "{{ hamstack_wpsd_config_path }}"
+  register: hamstack_wpsd_mmdvmhost
+
+- name: Check for WPSD DMRGateway configuration
+  ansible.builtin.stat:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+  register: hamstack_wpsd_dmrgateway
+  when: hamstack_wpsd_manage_dmr_custom_network | bool
+
+- name: Validate WPSD DMRGateway appliance state
+  ansible.builtin.assert:
+    that:
+      - hamstack_wpsd_dmrgateway.stat.exists
+    fail_msg: >-
+      Custom DMR network management was requested, but the native WPSD
+      DMRGateway configuration was not found at
+      {{ hamstack_wpsd_dmrgateway_config_path }}. Configure/initialize DMR in
+      WPSD first, then re-run HamStack.
+  when: hamstack_wpsd_manage_dmr_custom_network | bool
+
+- name: Refuse to turn HamStack into a WPSD image installer
+  ansible.builtin.assert:
+    that:
+      - hamstack_wpsd_services.stat.exists
+      - hamstack_wpsd_mmdvmhost.stat.exists
+    fail_msg: >-
+      A vanilla, booted WPSD image was not detected. Flash and boot a supported
+      upstream WPSD image first; HamStack begins once the node is reachable over
+      SSH and WPSD has created its native configuration.
+
+- name: Check MMDVMHost controller-mode marker
+  ansible.builtin.stat:
+    path: "{{ hamstack_wpsd_modem_config_path }}"
+  register: _hamstack_wpsd_modem_config
+
+- name: Select MMDVMHost controller mode
+  ansible.builtin.file:
+    path: "{{ hamstack_wpsd_modem_config_path }}"
+    state: touch
+    mode: "0644"
+  when: not _hamstack_wpsd_modem_config.stat.exists
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Enforce MMDVMHost controller-mode marker permissions
+  ansible.builtin.file:
+    path: "{{ hamstack_wpsd_modem_config_path }}"
+    state: file
+    mode: "0644"
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Remove conflicting D-Star repeater controller marker
+  ansible.builtin.file:
+    path: /etc/dstar-radio.dstarrepeater
+    state: absent
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD modem hardware identifier
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_modem_config_path }}"
+    section: Modem
+    option: Hardware
+    value: "{{ hamstack_wpsd_modem }}"
+    no_extra_spaces: true
+    backup: true
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD host name
+  ansible.builtin.hostname:
+    name: "{{ hamstack_wpsd_hotspot_name }}"
+
+- name: Configure WPSD dashboard callsign
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dashboard_config_path }}"
+    section: WPSD
+    option: Callsign
+    value: "{{ hamstack_wpsd_callsign }}"
+    no_extra_spaces: false
+    backup: true
+  notify: Refresh WPSD system cache
+
+- name: Configure WPSD dashboard timezone
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dashboard_config_path }}"
+    section: WPSD
+    option: Timezone
+    value: "{{ hamstack_wpsd_timezone }}"
+    no_extra_spaces: false
+    backup: true
+  notify: Refresh WPSD system cache
+
+- name: Configure optional WPSD dashboard language
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dashboard_config_path }}"
+    section: WPSD
+    option: DashLanguage
+    value: "{{ hamstack_wpsd_dashboard_language }}"
+    no_extra_spaces: false
+    backup: true
+  when: hamstack_wpsd_dashboard_language | length > 0
+  notify: Refresh WPSD system cache
+
+- name: Configure extra WPSD dashboard settings
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dashboard_config_path }}"
+    section: WPSD
+    option: "{{ item.key }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: false
+    backup: true
+  loop: "{{ hamstack_wpsd_dashboard_extra_settings | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  notify: Refresh WPSD system cache
+
+- name: Configure WPSD MMDVMHost display type
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: General
+    option: Display
+    value: "{{ 'OLED' if hamstack_wpsd_display == 'oled' else 'None' }}"
+    no_extra_spaces: true
+    backup: true
+  notify:
+    - Refresh WPSD system cache
+    - Refresh WPSD display driver
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD OLED display options
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: OLED
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop:
+    - option: Type
+      value: "{{ hamstack_wpsd_oled_type | int }}"
+    - option: Scroll
+      value: "{{ 1 if (hamstack_wpsd_oled_scroll | bool and (hamstack_wpsd_oled_type | int) == 3) else 0 }}"
+    - option: LogoScreensaver
+      value: "{{ 1 if hamstack_wpsd_oled_screensaver | bool else 0 }}"
+    - option: Brightness
+      value: "{{ hamstack_wpsd_oled_brightness | int }}"
+    - option: Invert
+      value: "{{ 1 if hamstack_wpsd_oled_invert | bool else 0 }}"
+    - option: Rotate
+      value: "{{ 1 if hamstack_wpsd_oled_rotate | bool else 0 }}"
+    - option: Cast
+      value: "{{ 1 if hamstack_wpsd_oled_cast | bool else 0 }}"
+  loop_control:
+    label: "OLED.{{ item.option }}"
+  when: hamstack_wpsd_display == 'oled'
+  notify:
+    - Refresh WPSD system cache
+    - Refresh WPSD display driver
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD MMDVMHost identity
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: General
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop:
+    - option: Callsign
+      value: "{{ hamstack_wpsd_callsign }}"
+    - option: Duplex
+      value: "{{ 1 if hamstack_wpsd_duplex | bool else 0 }}"
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD DMR/CCS7 ID
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: General
+    option: Id
+    value: "{{ hamstack_wpsd_dmr_id }}"
+    no_extra_spaces: true
+    backup: true
+  when: hamstack_wpsd_dmr_id is not none
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD radio information
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: Info
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop:
+    - option: RXFrequency
+      value: "{{ ((hamstack_wpsd_rx_frequency_mhz | float) * 1000000) | round | int }}"
+    - option: TXFrequency
+      value: "{{ ((hamstack_wpsd_tx_frequency_mhz | float) * 1000000) | round | int }}"
+    - option: Location
+      value: "{{ hamstack_wpsd_location }}"
+    - option: Description
+      value: "{{ hamstack_wpsd_description }}"
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD latitude
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: Info
+    option: Latitude
+    value: "{{ hamstack_wpsd_latitude }}"
+    no_extra_spaces: true
+    backup: true
+  when: hamstack_wpsd_latitude is not none
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD longitude
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: Info
+    option: Longitude
+    value: "{{ hamstack_wpsd_longitude }}"
+    no_extra_spaces: true
+    backup: true
+  when: hamstack_wpsd_longitude is not none
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure optional WPSD station URL
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: Info
+    option: URL
+    value: "{{ hamstack_wpsd_url }}"
+    no_extra_spaces: true
+    backup: true
+  when: hamstack_wpsd_url | length > 0
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD RX modem offset
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: Modem
+    option: RXOffset
+    value: "{{ hamstack_wpsd_rx_offset_hz }}"
+    no_extra_spaces: true
+    backup: true
+  when: hamstack_wpsd_rx_offset_hz is not none
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD TX modem offset
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: Modem
+    option: TXOffset
+    value: "{{ hamstack_wpsd_tx_offset_hz }}"
+    no_extra_spaces: true
+    backup: true
+  when: hamstack_wpsd_tx_offset_hz is not none
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Build WPSD mode section map
+  ansible.builtin.set_fact:
+    hamstack_wpsd_mode_sections:
+      - {name: dstar, section: "D-Star"}
+      - {name: dmr, section: "DMR"}
+      - {name: ysf, section: "System Fusion"}
+      - {name: p25, section: "P25"}
+      - {name: nxdn, section: "NXDN"}
+      - {name: m17, section: "M17"}
+      - {name: pocsag, section: "POCSAG"}
+  when: hamstack_wpsd_manage_modes | bool
+
+- name: Configure WPSD radio mode enable flags
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: "{{ item.section }}"
+    option: Enable
+    value: "{{ 1 if item.name in hamstack_wpsd_modes else 0 }}"
+    no_extra_spaces: true
+    backup: true
+  loop: "{{ hamstack_wpsd_mode_sections | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: hamstack_wpsd_manage_modes | bool
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD NXDN ID
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: NXDN
+    option: Id
+    value: "{{ hamstack_wpsd_nxdn_id }}"
+    no_extra_spaces: true
+    backup: true
+  when:
+    - "'nxdn' in hamstack_wpsd_modes"
+    - hamstack_wpsd_nxdn_id is not none
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost
+
+- name: Route MMDVMHost DMR traffic through DMRGateway
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: DMR Network
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop:
+    - {option: Enable, value: 1}
+    - {option: Type, value: Gateway}
+    - {option: Address, value: 127.0.0.1}
+    - {option: Port, value: 62031}
+    - {option: Local, value: 62032}
+  loop_control:
+    label: "DMR Network.{{ item.option }}"
+  when: hamstack_wpsd_manage_dmr_custom_network | bool
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Disable other WPSD DMRGateway networks for exclusive custom-master mode
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+    section: "{{ item }}"
+    option: Enabled
+    value: 0
+    no_extra_spaces: true
+    backup: true
+  loop:
+    - DMR Network 1
+    - DMR Network 2
+    - DMR Network 3
+    - DMR Network 4
+    - DMR Network 5
+    - XLX Network
+  when:
+    - hamstack_wpsd_manage_dmr_custom_network | bool
+    - hamstack_wpsd_dmr_custom_network_exclusive | bool
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD custom DMR master
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+    section: DMR Network Custom
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop:
+    - option: Enabled
+      value: 1
+    - option: WPSD_AutoRewrites
+      value: "{{ 1 if hamstack_wpsd_dmr_custom_network_auto_rewrites | bool else 0 }}"
+    - option: Name
+      value: "{{ hamstack_wpsd_dmr_custom_network_name }}"
+    - option: Address
+      value: "{{ hamstack_wpsd_dmr_custom_network_address }}"
+    - option: Port
+      value: "{{ hamstack_wpsd_dmr_custom_network_port | int }}"
+    - option: Id
+      value: "{{ hamstack_wpsd_dmr_custom_network_id }}"
+    - option: Location
+      value: "{{ 1 if hamstack_wpsd_dmr_custom_network_location | bool else 0 }}"
+    - option: Debug
+      value: 0
+  loop_control:
+    label: "DMR Network Custom.{{ item.option }}"
+  when: hamstack_wpsd_manage_dmr_custom_network | bool
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD custom DMR master password
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+    section: DMR Network Custom
+    option: Password
+    value: "{{ vault_hamstack_wpsd_dmr_custom_network_password }}"
+    no_extra_spaces: true
+    backup: true
+  no_log: true
+  when: hamstack_wpsd_manage_dmr_custom_network | bool
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Configure optional WPSD custom DMR master options
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+    section: DMR Network Custom
+    option: Options
+    value: "{{ hamstack_wpsd_dmr_custom_network_options }}"
+    no_extra_spaces: true
+    backup: true
+  when:
+    - hamstack_wpsd_manage_dmr_custom_network | bool
+    - hamstack_wpsd_dmr_custom_network_options | string | length > 0
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Remove unused WPSD custom DMR master options
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+    section: DMR Network Custom
+    option: Options
+    state: absent
+    backup: true
+  when:
+    - hamstack_wpsd_manage_dmr_custom_network | bool
+    - hamstack_wpsd_dmr_custom_network_options | string | length == 0
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Configure WPSD custom DMR routing rules
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_dmrgateway_config_path }}"
+    section: DMR Network Custom
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop: "{{ hamstack_wpsd_dmr_custom_network_rules }}"
+  loop_control:
+    label: "DMR Network Custom.{{ item.option }}"
+  when: hamstack_wpsd_manage_dmr_custom_network | bool
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD DMRGateway
+    - Restart WPSD MMDVMHost
+
+- name: Configure extra WPSD MMDVMHost values
+  community.general.ini_file:
+    path: "{{ hamstack_wpsd_config_path }}"
+    section: "{{ item.section }}"
+    option: "{{ item.option }}"
+    value: "{{ item.value }}"
+    no_extra_spaces: true
+    backup: true
+  loop: "{{ hamstack_wpsd_mmdvmhost_extra }}"
+  loop_control:
+    label: "{{ item.section }}.{{ item.option }}"
+  notify:
+    - Refresh WPSD system cache
+    - Restart WPSD MMDVMHost

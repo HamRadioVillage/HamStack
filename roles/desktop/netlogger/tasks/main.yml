@@ -1,0 +1,52 @@
+---
+- name: Install NetLogger workstation capability
+  when: hamstack_netlogger_enabled | bool
+  block:
+    - name: Validate NetLogger inputs
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_netlogger_user | length > 0
+          - (hamstack_netlogger_package_url | length > 0) or (hamstack_netlogger_package_src | length > 0)
+        fail_msg: >-
+          NetLogger requires a Debian-family desktop and either
+          hamstack_netlogger_package_url or hamstack_netlogger_package_src.
+          Upstream currently distributes Linux packages through its download
+          form, so HamStack does not scrape that workflow.
+
+    - name: Install optional NetLogger prerequisites
+      ansible.builtin.apt:
+        name: "{{ hamstack_netlogger_extra_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_netlogger_extra_packages | length > 0
+
+    - name: Create NetLogger package cache
+      ansible.builtin.file:
+        path: "{{ hamstack_netlogger_cache_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Download NetLogger Debian package
+      ansible.builtin.get_url:
+        url: "{{ hamstack_netlogger_package_url }}"
+        dest: "{{ hamstack_netlogger_cache_dir }}/{{ hamstack_netlogger_package_filename }}"
+        mode: '0644'
+      when: hamstack_netlogger_package_url | length > 0
+
+    - name: Copy operator-supplied NetLogger Debian package
+      ansible.builtin.copy:
+        src: "{{ hamstack_netlogger_package_src }}"
+        dest: "{{ hamstack_netlogger_cache_dir }}/{{ hamstack_netlogger_package_filename }}"
+        mode: '0644'
+      when:
+        - hamstack_netlogger_package_url | length == 0
+        - hamstack_netlogger_package_src | length > 0
+
+    - name: Install NetLogger Debian package
+      ansible.builtin.apt:
+        deb: "{{ hamstack_netlogger_cache_dir }}/{{ hamstack_netlogger_package_filename }}"
+        state: present

@@ -1,0 +1,58 @@
+---
+- name: Deploy official Meshtastic Web client
+  when: hamstack_meshtastic_dashboard_enabled | bool
+  block:
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create Meshtastic Web directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_meshtastic_dashboard_data_dir }}"
+        - "{{ hamstack_meshtastic_dashboard_data_dir }}/caddy-data"
+        - "{{ hamstack_meshtastic_dashboard_data_dir }}/caddy-config"
+
+    - name: Render Meshtastic Web Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_meshtastic_dashboard_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_meshtastic_caddy
+
+    - name: Create Meshtastic Web private Docker network
+      community.docker.docker_network:
+        name: hamstack-meshtastic-web
+
+    - name: Run official Meshtastic Web container
+      community.docker.docker_container:
+        name: "{{ hamstack_meshtastic_dashboard_container_name }}"
+        image: "{{ hamstack_meshtastic_dashboard_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_meshtastic_dashboard_autostart | bool else 'no' }}"
+        networks:
+          - name: hamstack-meshtastic-web
+
+    - name: Run Meshtastic Web HTTPS sidecar
+      community.docker.docker_container:
+        name: hamstack-meshtastic-web-caddy
+        image: "{{ hamstack_meshtastic_dashboard_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_meshtastic_dashboard_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_meshtastic_caddy.changed }}"
+        networks:
+          - name: hamstack-meshtastic-web
+        published_ports:
+          - "{{ hamstack_meshtastic_dashboard_https_bind }}:{{ hamstack_meshtastic_dashboard_https_port }}:443"
+        volumes:
+          - "{{ hamstack_meshtastic_dashboard_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_meshtastic_dashboard_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_meshtastic_dashboard_data_dir }}/caddy-config:/config"

@@ -1,0 +1,26 @@
+---
+# SECRET TEMPLATE ONLY.
+#
+# Do not place real secrets in inventory/example.
+# After creating inventory/local, create an encrypted vault.yml there and
+# add only the secret variables required by your deployment.
+
+vault_hamstack_44connect_private_key: ""
+vault_hamstack_44connect_preshared_key: ""
+vault_hamstack_routeros_password: ""
+
+# Graywolf uses the dedicated secret below. The APRS-named value is retained
+# only as a compatibility fallback for existing private inventories.
+vault_hamstack_graywolf_password: ""
+vault_hamstack_aprs_graywolf_password: ""
+vault_hamstack_linbpq_telnet_users: []
+vault_hamstack_winlink_password: ""
+
+vault_hamstack_cloudlog_database_password: ""
+vault_hamstack_dcdash_admin_password: ""
+vault_hamstack_wavelog_database_password: ""
+vault_hamstack_technitium_admin_password: ""
+
+
+vault_hamstack_allstar_node_password: ""
+vault_hamstack_wpsd_dmr_custom_network_password: ""

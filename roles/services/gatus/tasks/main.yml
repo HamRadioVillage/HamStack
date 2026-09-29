@@ -1,0 +1,79 @@
+---
+- name: Deploy Gatus HamStack status service
+  when: hamstack_gatus_enabled | bool
+  block:
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create Gatus directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_gatus_data_dir }}"
+        - "{{ hamstack_gatus_data_dir }}/config"
+        - "{{ hamstack_gatus_data_dir }}/data"
+        - "{{ hamstack_gatus_data_dir }}/caddy-data"
+        - "{{ hamstack_gatus_data_dir }}/caddy-config"
+
+    - name: Render Gatus configuration
+      ansible.builtin.template:
+        src: config.yaml.j2
+        dest: "{{ hamstack_gatus_data_dir }}/config/config.yaml"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_gatus_config
+
+    - name: Render Gatus Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_gatus_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_gatus_caddy
+
+    - name: Create Gatus private Docker network
+      community.docker.docker_network:
+        name: hamstack-gatus
+
+    - name: Run Gatus container
+      community.docker.docker_container:
+        name: "{{ hamstack_gatus_container_name }}"
+        image: "{{ hamstack_gatus_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_gatus_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_gatus_config.changed }}"
+        capabilities:
+          - NET_RAW
+        networks:
+          - name: hamstack-gatus
+        published_ports:
+          - "127.0.0.1:{{ hamstack_gatus_loopback_http_port }}:8080"
+        env:
+          GATUS_CONFIG_PATH: /config/config.yaml
+        volumes:
+          - "{{ hamstack_gatus_data_dir }}/config:/config:ro"
+          - "{{ hamstack_gatus_data_dir }}/data:/data"
+
+    - name: Run Gatus HTTPS sidecar
+      community.docker.docker_container:
+        name: hamstack-gatus-caddy
+        image: "{{ hamstack_gatus_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_gatus_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_gatus_caddy.changed }}"
+        networks:
+          - name: hamstack-gatus
+        published_ports:
+          - "{{ hamstack_gatus_https_bind }}:{{ hamstack_gatus_https_port }}:443"
+        volumes:
+          - "{{ hamstack_gatus_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_gatus_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_gatus_data_dir }}/caddy-config:/config"

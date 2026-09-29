@@ -1,0 +1,16 @@
+[Unit]
+Description=HamStack LinBPQ Node/BBS
+After=network-online.target graywolf.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ hamstack_linbpq_service_user }}
+Group={{ hamstack_linbpq_service_user }}
+WorkingDirectory={{ hamstack_linbpq_data_dir }}
+ExecStart={{ hamstack_linbpq_binary_path }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

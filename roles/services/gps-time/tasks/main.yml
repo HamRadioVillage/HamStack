@@ -1,0 +1,128 @@
+---
+- name: Configure GNSS-backed network time
+  when: hamstack_gps_time_enabled | bool
+  block:
+    - name: Validate GPS time provider and device resource
+      ansible.builtin.assert:
+        that:
+          - hamstack_gps_time_time_sync_provider == "chrony"
+          - hamstack_gps_time_device | length > 0
+          - hamstack_devices.get(hamstack_gps_time_device, {}) | length > 0
+        fail_msg: >-
+          gps-time requires a named GPS resource in hamstack_devices and
+          currently supports chrony as its time-sync provider.
+
+    - name: Resolve GPS device resource
+      ansible.builtin.set_fact:
+        _hamstack_gps_time_resource: "{{ hamstack_devices[hamstack_gps_time_device] }}"
+
+    - name: Resolve GPS serial and PPS endpoints
+      ansible.builtin.set_fact:
+        _hamstack_gps_time_serial: >-
+          {{ _hamstack_gps_time_resource.get('endpoints', {}).get('serial', '') }}
+        _hamstack_gps_time_pps: >-
+          {{
+            hamstack_gps_time_pps_device
+            if hamstack_gps_time_pps_device | length > 0
+            else _hamstack_gps_time_resource.get('endpoints', {}).get('pps', '')
+          }}
+
+    - name: Validate GPS serial endpoint
+      ansible.builtin.assert:
+        that:
+          - _hamstack_gps_time_serial | length > 0
+          - not hamstack_gps_time_pps_enabled or _hamstack_gps_time_pps | length > 0
+        fail_msg: >-
+          The GPS resource must expose endpoints.serial. PPS mode additionally
+          requires endpoints.pps or hamstack_gps_time_pps_device.
+
+    - name: Select chrony refclock mode
+      ansible.builtin.set_fact:
+        _hamstack_gps_time_effective_refclock: >-
+          {{
+            ('pps-sock' if hamstack_gps_time_pps_enabled else 'shm')
+            if hamstack_gps_time_refclock_mode == 'auto'
+            else hamstack_gps_time_refclock_mode
+          }}
+        _hamstack_gps_time_serial_basename: "{{ _hamstack_gps_time_serial | basename }}"
+        _hamstack_gps_time_pps_basename: "{{ _hamstack_gps_time_pps | basename if _hamstack_gps_time_pps | length > 0 else '' }}"
+        _hamstack_gps_time_gpsd_devices: >-
+          {{ [_hamstack_gps_time_serial] + ([_hamstack_gps_time_pps] if hamstack_gps_time_pps_enabled else []) }}
+
+    - name: Validate selected chrony refclock mode
+      ansible.builtin.assert:
+        that:
+          - _hamstack_gps_time_effective_refclock in ['pps-sock', 'sock', 'shm']
+          - _hamstack_gps_time_effective_refclock != 'pps-sock' or hamstack_gps_time_pps_enabled
+        fail_msg: >-
+          hamstack_gps_time_refclock_mode must be auto, pps-sock, sock, or shm.
+          pps-sock additionally requires PPS to be enabled.
+
+    - name: Install GPS and time packages
+      ansible.builtin.apt:
+        name: >-
+          {{
+            ['chrony', 'gpsd', 'gpsd-clients']
+            + (['pps-tools'] if hamstack_gps_time_pps_enabled else [])
+          }}
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+    - name: Configure gpsd data sources
+      ansible.builtin.template:
+        src: gpsd.default.j2
+        dest: /etc/default/gpsd
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart HamStack GPS time
+
+    - name: Ensure chrony drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/chrony/conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Configure chrony GNSS reference and LAN service policy
+      ansible.builtin.template:
+        src: chrony-hamstack.conf.j2
+        dest: /etc/chrony/conf.d/hamstack-gps.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart HamStack GPS time
+
+    - name: Make gpsd start after chrony socket creation
+      ansible.builtin.file:
+        path: /etc/systemd/system/gpsd.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install gpsd/chrony ordering drop-in
+      ansible.builtin.template:
+        src: gpsd-chrony-order.conf.j2
+        dest: /etc/systemd/system/gpsd.service.d/hamstack-chrony.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart HamStack GPS time
+
+    - name: Enable chrony
+      ansible.builtin.systemd:
+        name: chrony
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Enable gpsd
+      ansible.builtin.systemd:
+        name: gpsd
+        enabled: true
+        state: started
+        daemon_reload: true
+      when: hamstack_gps_time_gpsd_enabled | bool

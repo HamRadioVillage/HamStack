@@ -1,0 +1,146 @@
+---
+- name: Manage GridTracker2
+  when: hamstack_gridtracker_enabled | bool
+  block:
+    - name: Verify GridTracker2 platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+          - ansible_facts['architecture'] in ['x86_64', 'aarch64']
+        fail_msg: >-
+          The first GridTracker2 implementation supports Debian-family amd64
+          and arm64 hosts only.
+
+    - name: Map host architecture to GridTracker package architecture
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_arch: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64'}[ansible_facts['architecture']] }}"
+
+    - name: Fetch GridTracker download page
+      ansible.builtin.uri:
+        url: "{{ hamstack_gridtracker_download_page }}"
+        return_content: true
+        status_code: 200
+      register: _hamstack_gridtracker_downloads
+      when:
+        - hamstack_gridtracker_install | bool
+        - hamstack_gridtracker_package_url | length == 0
+        - hamstack_gridtracker_version == 'latest'
+
+    - name: Discover latest GridTracker Debian package filename
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_filename: >-
+          {{
+            (
+              _hamstack_gridtracker_downloads.content
+              | regex_findall('GridTracker2-[0-9.]+-' ~ _hamstack_gridtracker_arch ~ '\\.deb')
+              | first
+            ) | default('', true)
+          }}
+      when:
+        - hamstack_gridtracker_install | bool
+        - hamstack_gridtracker_package_url | length == 0
+        - hamstack_gridtracker_version == 'latest'
+
+    - name: Construct latest GridTracker Debian package URL
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_url: "{{ hamstack_gridtracker_base_url }}/{{ _hamstack_gridtracker_filename }}"
+      when:
+        - hamstack_gridtracker_install | bool
+        - hamstack_gridtracker_package_url | length == 0
+        - hamstack_gridtracker_version == 'latest'
+        - _hamstack_gridtracker_filename | default('') | length > 0
+
+    - name: Construct pinned GridTracker Debian package URL
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_url: >-
+          {{ hamstack_gridtracker_base_url }}/GridTracker2-{{ hamstack_gridtracker_version }}-{{ _hamstack_gridtracker_arch }}.deb
+      when:
+        - hamstack_gridtracker_install | bool
+        - hamstack_gridtracker_package_url | length == 0
+        - hamstack_gridtracker_version != 'latest'
+
+    - name: Use explicit GridTracker package URL
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_url: "{{ hamstack_gridtracker_package_url }}"
+      when:
+        - hamstack_gridtracker_install | bool
+        - hamstack_gridtracker_package_url | length > 0
+
+    - name: Validate GridTracker package URL
+      ansible.builtin.assert:
+        that:
+          - _hamstack_gridtracker_url | default('') | length > 0
+        fail_msg: >-
+          Could not discover a GridTracker2 Debian package. Pin
+          hamstack_gridtracker_package_url or hamstack_gridtracker_version.
+      when: hamstack_gridtracker_install | bool
+
+    - name: Install package-install prerequisites
+      ansible.builtin.apt:
+        name: xz-utils
+        state: present
+      when: hamstack_gridtracker_install | bool
+
+    - name: Create HamStack package cache
+      ansible.builtin.file:
+        path: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: hamstack_gridtracker_install | bool
+
+    - name: Download GridTracker2 Debian package
+      ansible.builtin.get_url:
+        url: "{{ _hamstack_gridtracker_url }}"
+        dest: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/gridtracker2.deb"
+        mode: "0644"
+      when: hamstack_gridtracker_install | bool
+
+    - name: Install GridTracker2 Debian package
+      ansible.builtin.apt:
+        deb: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/gridtracker2.deb"
+        state: present
+      when: hamstack_gridtracker_install | bool
+
+    - name: Validate GridTracker operator account for autostart
+      ansible.builtin.assert:
+        that:
+          - hamstack_operator_user | default('') | length > 0
+        fail_msg: "Set hamstack_operator_user before enabling GridTracker autostart."
+      when: hamstack_gridtracker_autostart | bool
+
+    - name: Read GridTracker operator account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_operator_user }}"
+      when: hamstack_operator_user | default('') | length > 0
+
+    - name: Remember GridTracker operator home directory
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_operator_home: "{{ ansible_facts.getent_passwd[hamstack_operator_user][4] }}"
+      when: hamstack_operator_user | default('') | length > 0
+
+    - name: Create GridTracker XDG autostart directory
+      ansible.builtin.file:
+        path: "{{ _hamstack_gridtracker_operator_home }}/.config/autostart"
+        state: directory
+        owner: "{{ hamstack_operator_user }}"
+        mode: "0755"
+      when: hamstack_gridtracker_autostart | bool
+
+    - name: Configure GridTracker desktop autostart
+      ansible.builtin.template:
+        src: gridtracker.desktop.j2
+        dest: "{{ _hamstack_gridtracker_operator_home }}/.config/autostart/hamstack-gridtracker.desktop"
+        owner: "{{ hamstack_operator_user }}"
+        mode: "0644"
+      when: hamstack_gridtracker_autostart | bool
+
+    - name: Remove GridTracker autostart when disabled
+      ansible.builtin.file:
+        path: "{{ _hamstack_gridtracker_operator_home }}/.config/autostart/hamstack-gridtracker.desktop"
+        state: absent
+      when:
+        - not (hamstack_gridtracker_autostart | bool)
+        - hamstack_operator_user | default('') | length > 0

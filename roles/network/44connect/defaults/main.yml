@@ -1,0 +1,30 @@
+---
+# 44Net Connect uses a WireGuard tunnel provisioned through connect.44net.cloud.
+# HamStack manages the Linux side of that tunnel; it does not request the tunnel.
+hamstack_44connect_enabled: false
+hamstack_44connect_mechanism: wireguard
+hamstack_44connect_interface_name: ham44
+hamstack_44connect_address: ''
+hamstack_44connect_mtu: null
+hamstack_44connect_dns_servers: []
+
+# Split tunnel is the safe/default HamStack behavior. Only 44Net traffic is sent
+# through 44Net Connect unless the operator explicitly requests full tunnel.
+hamstack_44connect_split_tunnel: true
+hamstack_44connect_allowed_ips:
+  - 44.0.0.0/9
+  - 44.128.0.0/10
+hamstack_44connect_full_tunnel_allowed_ips:
+  - 0.0.0.0/0
+hamstack_44connect_routes: []
+
+hamstack_44connect_peer_public_key: ''
+hamstack_44connect_peer_endpoint: ''
+hamstack_44connect_persistent_keepalive: 25
+hamstack_44connect_autostart: true
+hamstack_44connect_restart_on_change: true
+hamstack_44connect_extra_settings: {}
+
+# Secrets are normally supplied from inventory/local/group_vars/all/vault.yml.
+hamstack_44connect_private_key: "{{ vault_hamstack_44connect_private_key | default('') }}"
+hamstack_44connect_preshared_key: "{{ vault_hamstack_44connect_preshared_key | default('') }}"

@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a HamStack role, integration, hardware capability, or improvement
+title: "[feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem or deployment need should HamStack address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: Describe the desired outcome rather than only a specific implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: upstream
+    attributes:
+      label: Upstream project or hardware
+      description: Include project names, hardware models, and any known supported interfaces/APIs.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Available test hardware or validation path
+      description: Note whether representative hardware/software is available for live testing.
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Project boundaries
+      options:
+        - label: I have reviewed `AGENTS.md` and the existing role taxonomy/ownership model.
+          required: true
+        - label: This request does not require committing real credentials or private inventory.
+          required: true

@@ -1,0 +1,8 @@
+[Unit]
+Description=Refresh local CONHAM mirror
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ hamstack_conham_data_dir }}/conham-refresh.sh

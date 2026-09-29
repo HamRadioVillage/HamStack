@@ -1,0 +1,28 @@
+---
+hamstack_technitium_dns_enabled: false
+hamstack_technitium_dns_image: technitium/dns-server:latest
+hamstack_technitium_dns_container_name: hamstack-technitium-dns
+hamstack_technitium_dns_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/technitium-dns' }}"
+hamstack_technitium_dns_domain: dns.hamstack.home.arpa
+hamstack_technitium_dns_default_zone: hamstack.home.arpa
+hamstack_technitium_dns_bootstrap_zone: true
+hamstack_technitium_dns_bind_address: 0.0.0.0
+hamstack_technitium_dns_port: 53
+hamstack_technitium_dns_web_bind: 0.0.0.0
+hamstack_technitium_dns_https_port: 8447
+hamstack_technitium_dns_forwarders: []
+hamstack_technitium_dns_forwarder_protocol: Udp
+hamstack_technitium_dns_recursion: AllowOnlyForPrivateNetworks
+hamstack_technitium_dns_autostart: true
+hamstack_technitium_dns_extra_env: {}
+
+# Managed local-zone records. HamStack renders an RFC 1035 fragment and imports
+# it through Technitium's API after the primary zone exists. The import updates
+# matching record sets without deleting unrelated/manual records from the zone.
+hamstack_technitium_dns_manage_zonefile: true
+hamstack_technitium_dns_zonefile_dir: "{{ hamstack_technitium_dns_data_dir }}/zonefiles"
+hamstack_technitium_dns_zonefile_path: "{{ hamstack_technitium_dns_zonefile_dir }}/{{ hamstack_technitium_dns_default_zone }}.zone"
+hamstack_technitium_dns_default_ttl: 300
+hamstack_technitium_dns_auto_service_records: true
+hamstack_technitium_dns_auto_address: ''
+hamstack_technitium_dns_records: []

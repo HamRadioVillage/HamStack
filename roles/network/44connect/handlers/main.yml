@@ -1,0 +1,9 @@
+---
+- name: Restart 44Net Connect tunnel
+  ansible.builtin.systemd:
+    name: "wg-quick@{{ hamstack_44connect_interface_name }}"
+    state: restarted
+    daemon_reload: true
+  when:
+    - hamstack_44connect_autostart | bool
+    - hamstack_44connect_restart_on_change | bool

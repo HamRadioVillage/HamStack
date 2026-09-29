@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+/usr/local/lib/hamstack/sstv-rx-ensure-audio
+
+export XDG_CONFIG_HOME="$HOME/.config/hamstack-sstv-rx"
+export PULSE_SINK={{ hamstack_sstv_rx_pulse_sink | quote }}
+
+exec /usr/bin/gqrx -c "$XDG_CONFIG_HOME/gqrx/hamstack.conf"

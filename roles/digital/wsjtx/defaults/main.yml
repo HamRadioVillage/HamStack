@@ -1,0 +1,15 @@
+---
+# Public configuration defaults for the wsjtx HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_wsjtx_enabled: false
+hamstack_wsjtx_install: true
+hamstack_wsjtx_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
+hamstack_wsjtx_grid_locator: '{{ hamstack_grid_locator | default('''') }}'
+hamstack_wsjtx_radio: ''
+hamstack_wsjtx_interface: ''
+hamstack_wsjtx_rig_control: flrig
+hamstack_wsjtx_udp_server_address: 127.0.0.1
+hamstack_wsjtx_udp_server_port: 2237
+hamstack_wsjtx_autostart: false
+hamstack_wsjtx_config_dir: ''
+hamstack_wsjtx_extra_settings: {}

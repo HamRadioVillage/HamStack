@@ -1,0 +1,15 @@
+---
+hamstack_chirp_enabled: false
+hamstack_chirp_user: "{{ hamstack_operator_user | default('') }}"
+hamstack_chirp_version: '20260904'
+hamstack_chirp_install_method: appimage
+hamstack_chirp_appimage_src: ''
+hamstack_chirp_appimage_url: ''
+hamstack_chirp_appimage_checksum: ''
+hamstack_chirp_wheel_url: "https://archive.chirpmyradio.com/chirp_next/next-{{ hamstack_chirp_version }}/chirp-{{ hamstack_chirp_version }}-py3-none-any.whl"
+hamstack_chirp_http_agent: Mozilla/5.0
+hamstack_chirp_install_dir: /opt/hamstack/chirp
+hamstack_chirp_cache_dir: "{{ (hamstack_cache_dir | default('/var/cache/hamstack')) ~ '/chirp' }}"
+hamstack_chirp_serial_groups:
+  - dialout
+hamstack_chirp_desktop_entry: true

@@ -1,0 +1,21 @@
+[{{ hamstack_allstar_node_number }}](node-main)
+devstr = {{ hamstack_allstar_simpleusb_devstr }}
+carrierfrom = {{ hamstack_allstar_simpleusb_carrierfrom }}
+ctcssfrom = {{ hamstack_allstar_simpleusb_ctcssfrom }}
+invertptt = {{ hamstack_allstar_simpleusb_invertptt }}
+eeprom = {{ hamstack_allstar_simpleusb_eeprom }}
+rxboost = {{ hamstack_allstar_simpleusb_rxboost }}
+deemphasis = {{ hamstack_allstar_simpleusb_deemphasis }}
+preemphasis = {{ hamstack_allstar_simpleusb_preemphasis }}
+{% if hamstack_allstar_simpleusb_rxmixerset is not none %}
+rxmixerset = {{ hamstack_allstar_simpleusb_rxmixerset }}
+{% endif %}
+{% if hamstack_allstar_simpleusb_txmixaset is not none %}
+txmixaset = {{ hamstack_allstar_simpleusb_txmixaset }}
+{% endif %}
+{% if hamstack_allstar_simpleusb_txmixbset is not none %}
+txmixbset = {{ hamstack_allstar_simpleusb_txmixbset }}
+{% endif %}
+{% for key, value in hamstack_allstar_simpleusb_settings | dictsort %}
+{{ key }} = {{ value }}
+{% endfor %}

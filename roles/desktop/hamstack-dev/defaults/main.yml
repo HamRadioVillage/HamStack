@@ -1,0 +1,22 @@
+---
+hamstack_dev_enabled: false
+hamstack_dev_user: "{{ hamstack_operator_user | default('') }}"
+hamstack_dev_repo_path: ''
+hamstack_dev_venv_dir: ''
+hamstack_dev_install_packages: true
+hamstack_dev_packages:
+  - git
+  - openssh-client
+  - python3
+  - python3-venv
+  - python3-pip
+  - python3-dev
+  - build-essential
+  - curl
+  - jq
+  - rsync
+  - unzip
+  - shellcheck
+hamstack_dev_install_python_requirements: true
+hamstack_dev_install_collections: true
+hamstack_dev_extra_packages: []

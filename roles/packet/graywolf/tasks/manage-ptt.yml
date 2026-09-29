@@ -1,0 +1,58 @@
+---
+- name: Resolve Graywolf channel for PTT
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_ptt_channel: "{{ _hamstack_graywolf_channel_by_name[_hamstack_graywolf_channel.name] }}"
+    _hamstack_graywolf_ptt_spec: "{{ _hamstack_graywolf_channel.ptt }}"
+  no_log: true
+
+- name: Build desired Graywolf PTT configuration
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_ptt_desired:
+      channel_id: "{{ _hamstack_graywolf_ptt_channel.id | int }}"
+      method: "{{ _hamstack_graywolf_ptt_spec.method | default('none') }}"
+      device_path: "{{ _hamstack_graywolf_ptt_spec.device_path | default('') }}"
+      gpio_pin: "{{ _hamstack_graywolf_ptt_spec.gpio_pin | default(3) | int }}"
+      ptt_method: "{{ _hamstack_graywolf_ptt_spec.ptt_method | default(0) | int }}"
+      gpio_line: "{{ _hamstack_graywolf_ptt_spec.gpio_line | default(0) | int }}"
+      invert: "{{ _hamstack_graywolf_ptt_spec.invert | default(false) | bool }}"
+      slot_time_ms: "{{ _hamstack_graywolf_ptt_spec.slot_time_ms | default(10) | int }}"
+      persist: "{{ _hamstack_graywolf_ptt_spec.persist | default(63) | int }}"
+      dwait_ms: "{{ _hamstack_graywolf_ptt_spec.dwait_ms | default(0) | int }}"
+    _hamstack_graywolf_ptt_existing: >-
+      {{
+        (_hamstack_graywolf_ptt_by_channel | default({})).get(
+          _hamstack_graywolf_ptt_channel.id | string,
+          {}
+        )
+      }}
+  no_log: true
+
+- name: Build normalized current Graywolf PTT configuration
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_ptt_current_normalized:
+      channel_id: "{{ _hamstack_graywolf_ptt_existing.channel_id | default(0) | int }}"
+      method: "{{ _hamstack_graywolf_ptt_existing.method | default('') }}"
+      device_path: "{{ _hamstack_graywolf_ptt_existing.device_path | default('') }}"
+      gpio_pin: "{{ _hamstack_graywolf_ptt_existing.gpio_pin | default(3) | int }}"
+      ptt_method: "{{ _hamstack_graywolf_ptt_existing.ptt_method | default(0) | int }}"
+      gpio_line: "{{ _hamstack_graywolf_ptt_existing.gpio_line | default(0) | int }}"
+      invert: "{{ _hamstack_graywolf_ptt_existing.invert | default(false) | bool }}"
+      slot_time_ms: "{{ _hamstack_graywolf_ptt_existing.slot_time_ms | default(10) | int }}"
+      persist: "{{ _hamstack_graywolf_ptt_existing.persist | default(63) | int }}"
+      dwait_ms: "{{ _hamstack_graywolf_ptt_existing.dwait_ms | default(0) | int }}"
+  no_log: true
+
+- name: Upsert Graywolf PTT configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/ptt"
+    method: POST
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_ptt_desired }}"
+    status_code:
+      - 200
+      - 201
+      - 204
+  no_log: true
+  when: _hamstack_graywolf_ptt_current_normalized != _hamstack_graywolf_ptt_desired

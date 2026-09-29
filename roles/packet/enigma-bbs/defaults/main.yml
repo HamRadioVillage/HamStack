@@ -1,0 +1,28 @@
+---
+hamstack_enigma_bbs_enabled: false
+hamstack_enigma_bbs_install: true
+hamstack_enigma_bbs_image: enigmabbs/enigma-bbs:latest
+hamstack_enigma_bbs_container_name: hamstack-enigma-bbs
+hamstack_enigma_bbs_system_name: "{{ (hamstack_site_name | default('HamStack')) ~ ' BBS' }}"
+hamstack_enigma_bbs_description: HamStack ENiGMA½ conference BBS
+hamstack_enigma_bbs_sysop_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+
+# RF/KISS transport is planned; the supported scope is currently IP-only.
+hamstack_enigma_bbs_packet_transport: none
+hamstack_enigma_bbs_kiss_host: 127.0.0.1
+hamstack_enigma_bbs_kiss_port: null
+
+hamstack_enigma_bbs_telnet_bind: 0.0.0.0
+hamstack_enigma_bbs_telnet_port: 8888
+hamstack_enigma_bbs_ssh_bind: 0.0.0.0
+hamstack_enigma_bbs_ssh_port: 8889
+hamstack_enigma_bbs_websocket_internal_port: 8890
+hamstack_enigma_bbs_https_bind: 0.0.0.0
+hamstack_enigma_bbs_https_port: 8445
+hamstack_enigma_bbs_tls_host: "{{ inventory_hostname }}"
+hamstack_enigma_bbs_caddy_image: caddy:2-alpine
+
+hamstack_enigma_bbs_config_dir: "{{ (hamstack_config_dir | default('/etc/hamstack')) ~ '/enigma-bbs' }}"
+hamstack_enigma_bbs_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/enigma-bbs' }}"
+hamstack_enigma_bbs_autostart: true
+hamstack_enigma_bbs_extra_settings: {}

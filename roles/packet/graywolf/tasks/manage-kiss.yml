@@ -1,0 +1,101 @@
+---
+- name: Resolve Graywolf channel and KISS specification
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_kiss_channel: "{{ _hamstack_graywolf_channel_by_name[_hamstack_graywolf_channel.name] }}"
+    _hamstack_graywolf_kiss_spec: "{{ _hamstack_graywolf_channel.kiss }}"
+  no_log: true
+
+- name: Build desired Graywolf KISS interface
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_kiss_desired:
+      type: "{{ _hamstack_graywolf_kiss_spec.type | default('tcp') }}"
+      tcp_port: "{{ _hamstack_graywolf_kiss_spec.port | default(8001) | int }}"
+      local_only: >-
+        {{
+          (_hamstack_graywolf_kiss_spec.listen_address | default('127.0.0.1'))
+          in ['127.0.0.1', 'localhost', '::1']
+        }}
+      serial_device: "{{ _hamstack_graywolf_kiss_spec.serial_device | default('') }}"
+      baud_rate: "{{ _hamstack_graywolf_kiss_spec.baud_rate | default(9600) | int }}"
+      channel: "{{ _hamstack_graywolf_kiss_channel.id | int }}"
+      mode: "{{ _hamstack_graywolf_kiss_spec.mode | default('modem') }}"
+      tnc_ingress_rate_hz: "{{ _hamstack_graywolf_kiss_spec.tnc_ingress_rate_hz | default(50) | int }}"
+      tnc_ingress_burst: "{{ _hamstack_graywolf_kiss_spec.tnc_ingress_burst | default(100) | int }}"
+      allow_tx_from_governor: "{{ _hamstack_graywolf_kiss_spec.allow_tx_from_governor | default(false) | bool }}"
+      gate_tx_to_is: "{{ _hamstack_graywolf_kiss_spec.gate_tx_to_is | default(false) | bool }}"
+      allow_connected_mode: "{{ _hamstack_graywolf_kiss_spec.allow_connected_mode | default(false) | bool }}"
+      remote_host: "{{ _hamstack_graywolf_kiss_spec.remote_host | default('') }}"
+      remote_port: "{{ _hamstack_graywolf_kiss_spec.remote_port | default(0) | int }}"
+      reconnect_init_ms: "{{ _hamstack_graywolf_kiss_spec.reconnect_init_ms | default(1000) | int }}"
+      reconnect_max_ms: "{{ _hamstack_graywolf_kiss_spec.reconnect_max_ms | default(300000) | int }}"
+      enabled: "{{ _hamstack_graywolf_kiss_spec.enabled | default(true) | bool }}"
+  no_log: true
+
+- name: Find existing Graywolf KISS interface for channel/mode/type
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_kiss_existing: >-
+      {{
+        (
+          _hamstack_graywolf_kiss_current.json | default([])
+          | selectattr('channel', 'equalto', _hamstack_graywolf_kiss_channel.id | int)
+          | selectattr('mode', 'equalto', _hamstack_graywolf_kiss_desired.mode)
+          | selectattr('type', 'equalto', _hamstack_graywolf_kiss_desired.type)
+          | list
+          | first
+        ) | default({}, true)
+      }}
+  no_log: true
+
+- name: Build normalized current Graywolf KISS interface
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_kiss_current_normalized:
+      type: "{{ _hamstack_graywolf_kiss_existing.type | default('') }}"
+      tcp_port: "{{ _hamstack_graywolf_kiss_existing.tcp_port | default(0) | int }}"
+      local_only: "{{ _hamstack_graywolf_kiss_existing.local_only | default(false) | bool }}"
+      serial_device: "{{ _hamstack_graywolf_kiss_existing.serial_device | default('') }}"
+      baud_rate: "{{ _hamstack_graywolf_kiss_existing.baud_rate | default(9600) | int }}"
+      channel: "{{ _hamstack_graywolf_kiss_existing.channel | default(0) | int }}"
+      mode: "{{ _hamstack_graywolf_kiss_existing.mode | default('') }}"
+      tnc_ingress_rate_hz: "{{ _hamstack_graywolf_kiss_existing.tnc_ingress_rate_hz | default(50) | int }}"
+      tnc_ingress_burst: "{{ _hamstack_graywolf_kiss_existing.tnc_ingress_burst | default(100) | int }}"
+      allow_tx_from_governor: "{{ _hamstack_graywolf_kiss_existing.allow_tx_from_governor | default(false) | bool }}"
+      gate_tx_to_is: "{{ _hamstack_graywolf_kiss_existing.gate_tx_to_is | default(false) | bool }}"
+      allow_connected_mode: "{{ _hamstack_graywolf_kiss_existing.allow_connected_mode | default(false) | bool }}"
+      remote_host: "{{ _hamstack_graywolf_kiss_existing.remote_host | default('') }}"
+      remote_port: "{{ _hamstack_graywolf_kiss_existing.remote_port | default(0) | int }}"
+      reconnect_init_ms: "{{ _hamstack_graywolf_kiss_existing.reconnect_init_ms | default(1000) | int }}"
+      reconnect_max_ms: "{{ _hamstack_graywolf_kiss_existing.reconnect_max_ms | default(300000) | int }}"
+      enabled: "{{ _hamstack_graywolf_kiss_existing.enabled | default(true) | bool }}"
+  no_log: true
+
+- name: Create Graywolf KISS interface
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/kiss"
+    method: POST
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_kiss_desired }}"
+    status_code:
+      - 200
+      - 201
+  no_log: true
+  when:
+    - _hamstack_graywolf_kiss_spec.enabled | default(true) | bool
+    - _hamstack_graywolf_kiss_existing | length == 0
+
+- name: Update Graywolf KISS interface
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/kiss/{{ _hamstack_graywolf_kiss_existing.id }}"
+    method: PUT
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_kiss_desired }}"
+    status_code:
+      - 200
+      - 204
+  no_log: true
+  when:
+    - _hamstack_graywolf_kiss_existing | length > 0
+    - _hamstack_graywolf_kiss_current_normalized != _hamstack_graywolf_kiss_desired

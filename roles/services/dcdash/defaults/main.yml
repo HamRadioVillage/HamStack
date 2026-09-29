@@ -1,0 +1,21 @@
+---
+hamstack_dcdash_enabled: false
+hamstack_dcdash_source_mode: git
+hamstack_dcdash_source_repo: ''
+hamstack_dcdash_source_ref: main
+hamstack_dcdash_install_dir: /opt/dcdash
+hamstack_dcdash_user: dcdash
+hamstack_dcdash_group: dcdash
+hamstack_dcdash_bind_address: 0.0.0.0
+hamstack_dcdash_port: 8450
+hamstack_dcdash_admin_username: admin
+hamstack_dcdash_db_path: "{{ hamstack_dcdash_install_dir }}/scoreboard.db"
+hamstack_dcdash_reports_dir: "{{ hamstack_dcdash_install_dir }}/reports"
+hamstack_dcdash_backup_dir: "{{ hamstack_dcdash_install_dir }}/backups"
+hamstack_dcdash_cert_file: "{{ hamstack_dcdash_install_dir }}/certs/cert.pem"
+hamstack_dcdash_key_file: "{{ hamstack_dcdash_install_dir }}/certs/key.pem"
+hamstack_dcdash_reverse_proxy: false
+hamstack_dcdash_proxy_hops: 1
+hamstack_dcdash_max_fox_rule_points: null
+hamstack_dcdash_autostart: true
+hamstack_dcdash_extra_environment: {}

@@ -1,0 +1,5 @@
+---
+- name: Restart MiniDLNA
+  ansible.builtin.service:
+    name: minidlna
+    state: restarted

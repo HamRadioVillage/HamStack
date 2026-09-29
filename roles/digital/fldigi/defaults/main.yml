@@ -1,0 +1,15 @@
+---
+# Public configuration defaults for the fldigi HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_fldigi_enabled: false
+hamstack_fldigi_install: true
+hamstack_fldigi_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
+hamstack_fldigi_grid_locator: '{{ hamstack_grid_locator | default('''') }}'
+hamstack_fldigi_radio: ''
+hamstack_fldigi_interface: ''
+hamstack_fldigi_rig_control: none
+hamstack_fldigi_xmlrpc_bind: 127.0.0.1
+hamstack_fldigi_xmlrpc_port: null
+hamstack_fldigi_autostart: false
+hamstack_fldigi_config_dir: ''
+hamstack_fldigi_extra_settings: {}

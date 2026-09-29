@@ -1,0 +1,95 @@
+---
+# HamStack configures an already-installed ASL3 appliance/system. It does not
+# install or image AllStarLink.
+hamstack_allstar_enabled: false
+
+hamstack_allstar_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_allstar_node_number: null
+hamstack_allstar_node_name: "{{ inventory_hostname }}"
+hamstack_allstar_node_description: ""
+hamstack_allstar_node_location: "{{ hamstack_grid_locator | default('') }}"
+
+# Public AllStar registration is deliberately opt-in so private/test nodes do
+# not accidentally register. When true, vault_hamstack_allstar_node_password
+# must be defined in the local Vault.
+hamstack_allstar_register: false
+hamstack_allstar_registration_host: register.allstarlink.org
+
+# ASL3 node/radio configuration.
+# Supported channel drivers: simpleusb, usbradio, hub.
+hamstack_allstar_channel_driver: simpleusb
+hamstack_allstar_duplex: null
+hamstack_allstar_id_recording: "|i{{ hamstack_allstar_callsign }}"
+
+# HamStack owns the ASL3 configuration files rendered by this role. Existing
+# contents are backed up by Ansible and then replaced deterministically. The
+# stock node number is retained only as an Allmon3 migration hint.
+hamstack_allstar_default_node_number: "1999"
+
+# Shared HamStack resource references. These are metadata links; the ASL role
+# does not currently derive USB configuration from hamstack_devices.
+hamstack_allstar_radio: ""
+hamstack_allstar_interface: ""
+
+# ASL3 native paths.
+hamstack_allstar_config_dir: /etc/asterisk
+hamstack_allstar_config_owner: asterisk
+hamstack_allstar_config_group: asterisk
+hamstack_allstar_service: asterisk
+
+# Keep the stock Allmon3 node target synchronized with the configured ASL node.
+# Existing AMI credentials are preserved; HamStack only renames the local node
+# section when necessary.
+hamstack_allstar_allmon3_manage: true
+hamstack_allstar_allmon3_config: /etc/allmon3/allmon3.ini
+hamstack_allstar_allmon3_service: allmon3
+
+# Optional SA818/DRA818 programming. These values mirror /etc/sa818.conf as
+# consumed by the upstream sa818-menu utility. Enabling this makes HamStack
+# authoritative for the saved menu values and optionally reapplies them to the
+# module whenever they change.
+hamstack_allstar_sa818_enabled: false
+hamstack_allstar_sa818_config: /etc/sa818.conf
+hamstack_allstar_sa818_apply: true
+hamstack_allstar_sa818_band: UHF
+hamstack_allstar_sa818_bandwidth: Wide
+hamstack_allstar_sa818_rx_frequency: null
+hamstack_allstar_sa818_tx_frequency: "{{ hamstack_allstar_sa818_rx_frequency }}"
+hamstack_allstar_sa818_squelch: 1
+hamstack_allstar_sa818_volume: 1
+hamstack_allstar_sa818_tone: None
+hamstack_allstar_sa818_ctcss_rx: None
+hamstack_allstar_sa818_ctcss_tx: None
+hamstack_allstar_sa818_dcs_rx: None
+hamstack_allstar_sa818_dcs_tx: None
+hamstack_allstar_sa818_tail_tone: Closed
+hamstack_allstar_sa818_emphasis: Disabled
+hamstack_allstar_sa818_high_pass: Disabled
+hamstack_allstar_sa818_low_pass: Disabled
+hamstack_allstar_sa818_port: ""
+hamstack_allstar_sa818_speed: ""
+
+# SimpleUSB baseline. ASL3 can auto-assign a suitable USB device when devstr is
+# empty. Audio levels are intentionally null until calibrated on real hardware.
+hamstack_allstar_simpleusb_devstr: ""
+hamstack_allstar_simpleusb_carrierfrom: usbinvert
+hamstack_allstar_simpleusb_ctcssfrom: "no"
+hamstack_allstar_simpleusb_invertptt: "no"
+hamstack_allstar_simpleusb_eeprom: 0
+hamstack_allstar_simpleusb_rxboost: "no"
+hamstack_allstar_simpleusb_deemphasis: "no"
+hamstack_allstar_simpleusb_preemphasis: "no"
+hamstack_allstar_simpleusb_rxmixerset: null
+hamstack_allstar_simpleusb_txmixaset: null
+hamstack_allstar_simpleusb_txmixbset: null
+hamstack_allstar_simpleusb_settings: {}
+
+# USBRadio is supported as a generic native-stanza backend. Site-specific DSP
+# parameters can be supplied here without HamStack pretending to calibrate them.
+hamstack_allstar_usbradio_settings: {}
+
+# Node-stanza settings not yet promoted to first-class HamStack variables.
+hamstack_allstar_extra_settings: {}
+
+hamstack_allstar_autostart: true
+hamstack_allstar_restart_on_change: true

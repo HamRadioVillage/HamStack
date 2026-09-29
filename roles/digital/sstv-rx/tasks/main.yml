@@ -1,0 +1,202 @@
+---
+- name: Manage RTL-SDR SSTV receive appliance
+  when: hamstack_sstv_rx_enabled | bool
+  block:
+    - name: Verify SSTV RX platform and inputs
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_sstv_rx_backend == 'qsstv'
+          - hamstack_sstv_rx_sdr_backend == 'gqrx'
+          - hamstack_sstv_rx_frequency_mhz is not none
+          - (hamstack_sstv_rx_frequency_mhz | float) > 0
+          - (hamstack_sstv_rx_gqrx_sample_rate | int) > 0
+        fail_msg: >-
+          The sstv-rx role supports GQRX feeding the HRV QSSTV build on
+          Debian-family systems. Set hamstack_sstv_rx_frequency_mhz to the
+          initial receive frequency before enabling the role.
+
+    - name: Validate SSTV RX desktop operator
+      ansible.builtin.assert:
+        that:
+          - hamstack_sstv_rx_user | default('') | length > 0
+        fail_msg: >-
+          Set hamstack_sstv_rx_user (or hamstack_operator_user) before enabling
+          the SSTV receive appliance.
+
+    - name: Install SSTV RX SDR and desktop audio packages
+      ansible.builtin.apt:
+        name:
+          - gqrx-sdr
+          - libvolk-bin
+          - pulseaudio-utils
+          - rtl-sdr
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_sstv_rx_install | bool
+
+    - name: Install HamRadioVillage QSSTV runtime
+      ansible.builtin.include_role:
+        name: digital/qsstv-runtime
+      when: hamstack_sstv_rx_install | bool
+
+    - name: Optionally blacklist kernel DVB drivers for dedicated RTL-SDR use
+      ansible.builtin.copy:
+        dest: /etc/modprobe.d/hamstack-sstv-rx-rtl-sdr.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # HAMSTACK MANAGED FILE - dedicated RTL-SDR receive appliance
+          blacklist dvb_usb_rtl28xxu
+          blacklist rtl2832
+          blacklist rtl2830
+      when: hamstack_sstv_rx_blacklist_dvb | bool
+
+    - name: Remove HamStack RTL-SDR DVB blacklist when disabled
+      ansible.builtin.file:
+        path: /etc/modprobe.d/hamstack-sstv-rx-rtl-sdr.conf
+        state: absent
+      when: not (hamstack_sstv_rx_blacklist_dvb | bool)
+
+    - name: Remove legacy rtl_fm bridge service
+      ansible.builtin.systemd:
+        name: hamstack-sstv-rx.service
+        enabled: false
+        state: stopped
+        daemon_reload: true
+      failed_when: false
+
+    - name: Remove legacy rtl_fm bridge files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/hamstack-sstv-rx.service
+        - /etc/modules-load.d/hamstack-sstv-rx.conf
+        - /usr/local/lib/hamstack/sstv-rx-bridge
+
+    - name: Reload systemd after removing legacy bridge unit
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Read SSTV RX operator account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_sstv_rx_user }}"
+
+    - name: Remember SSTV RX operator home directory
+      ansible.builtin.set_fact:
+        _hamstack_sstv_rx_operator_home: >-
+          {{ ansible_facts.getent_passwd[hamstack_sstv_rx_user][4] }}
+
+    - name: Add SSTV RX operator to audio group
+      ansible.builtin.user:
+        name: "{{ hamstack_sstv_rx_user }}"
+        groups:
+          - audio
+        append: true
+
+    - name: Create SSTV RX system and operator directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group | default(omit) }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - path: /usr/local/lib/hamstack
+          owner: root
+          group: root
+          mode: '0755'
+        - path: "{{ hamstack_sstv_rx_image_dir }}"
+          owner: "{{ hamstack_sstv_rx_user }}"
+          mode: '0755'
+        - path: "{{ _hamstack_sstv_rx_operator_home }}/.config/autostart"
+          owner: "{{ hamstack_sstv_rx_user }}"
+          mode: '0755'
+        - path: "{{ _hamstack_sstv_rx_operator_home }}/.config/hamstack-sstv-rx/gqrx"
+          owner: "{{ hamstack_sstv_rx_user }}"
+          mode: '0755'
+        - path: "{{ _hamstack_sstv_rx_operator_home }}/.config/hamstack-sstv-rx/ON4QZ"
+          owner: "{{ hamstack_sstv_rx_user }}"
+          mode: '0755'
+
+    - name: Install SSTV RX PulseAudio/PipeWire-Pulse helper
+      ansible.builtin.template:
+        src: sstv-rx-ensure-audio.sh.j2
+        dest: /usr/local/lib/hamstack/sstv-rx-ensure-audio
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install GQRX launcher for SSTV RX appliance
+      ansible.builtin.template:
+        src: sstv-rx-gqrx.sh.j2
+        dest: /usr/local/lib/hamstack/sstv-rx-gqrx
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install QSSTV launcher for SSTV RX appliance
+      ansible.builtin.template:
+        src: sstv-rx-qsstv.sh.j2
+        dest: /usr/local/lib/hamstack/sstv-rx-qsstv
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Seed GQRX appliance profile without overwriting operator QSY state
+      ansible.builtin.template:
+        src: gqrx.conf.j2
+        dest: "{{ _hamstack_sstv_rx_operator_home }}/.config/hamstack-sstv-rx/gqrx/hamstack.conf"
+        owner: "{{ hamstack_sstv_rx_user }}"
+        mode: '0644'
+        force: false
+
+    - name: Seed QSSTV PulseAudio preference without overwriting operator settings
+      ansible.builtin.template:
+        src: qsstv.conf.j2
+        dest: "{{ _hamstack_sstv_rx_operator_home }}/.config/hamstack-sstv-rx/ON4QZ/qsstv_9.0.conf"
+        owner: "{{ hamstack_sstv_rx_user }}"
+        mode: '0644'
+        force: false
+
+    - name: Profile VOLK kernels once for GQRX
+      ansible.builtin.command:
+        cmd: volk_profile
+        creates: "{{ _hamstack_sstv_rx_operator_home }}/.volk/volk_config"
+      become: true
+      become_user: "{{ hamstack_sstv_rx_user }}"
+      environment:
+        HOME: "{{ _hamstack_sstv_rx_operator_home }}"
+      when: hamstack_sstv_rx_install | bool
+
+    - name: Configure GQRX desktop autostart for SSTV RX appliance
+      ansible.builtin.template:
+        src: gqrx.desktop.j2
+        dest: "{{ _hamstack_sstv_rx_operator_home }}/.config/autostart/hamstack-sstv-rx-gqrx.desktop"
+        owner: "{{ hamstack_sstv_rx_user }}"
+        mode: '0644'
+      when: hamstack_sstv_rx_gqrx_autostart | bool
+
+    - name: Remove GQRX desktop autostart when disabled
+      ansible.builtin.file:
+        path: "{{ _hamstack_sstv_rx_operator_home }}/.config/autostart/hamstack-sstv-rx-gqrx.desktop"
+        state: absent
+      when: not (hamstack_sstv_rx_gqrx_autostart | bool)
+
+    - name: Configure QSSTV desktop autostart for SSTV RX appliance
+      ansible.builtin.template:
+        src: qsstv.desktop.j2
+        dest: "{{ _hamstack_sstv_rx_operator_home }}/.config/autostart/hamstack-sstv-rx-qsstv.desktop"
+        owner: "{{ hamstack_sstv_rx_user }}"
+        mode: '0644'
+      when: hamstack_sstv_rx_qsstv_autostart | bool
+
+    - name: Remove QSSTV desktop autostart when disabled
+      ansible.builtin.file:
+        path: "{{ _hamstack_sstv_rx_operator_home }}/.config/autostart/hamstack-sstv-rx-qsstv.desktop"
+        state: absent
+      when: not (hamstack_sstv_rx_qsstv_autostart | bool)

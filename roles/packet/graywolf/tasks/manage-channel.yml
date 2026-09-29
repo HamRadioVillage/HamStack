@@ -1,0 +1,116 @@
+---
+- name: Validate Graywolf channel definition
+  ansible.builtin.assert:
+    that:
+      - _hamstack_graywolf_channel.name | default('') | length > 0
+      - _hamstack_graywolf_channel.mode | default('aprs') in ['aprs', 'packet', 'aprs+packet']
+      - >-
+        (_hamstack_graywolf_channel.kiss_tnc_only | default(false) | bool)
+        or (_hamstack_graywolf_channel.input_device | default('') | length > 0)
+      - >-
+        (_hamstack_graywolf_channel.kiss_tnc_only | default(false) | bool)
+        or (_hamstack_graywolf_audio_by_name.get(_hamstack_graywolf_channel.input_device | default(''), {}) | length > 0)
+      - >-
+        (_hamstack_graywolf_channel.output_device | default('') | length == 0)
+        or (_hamstack_graywolf_audio_by_name.get(_hamstack_graywolf_channel.output_device, {}) | length > 0)
+    fail_msg: >-
+      Each Graywolf channel requires a name and valid mode. Modem-backed channels
+      require input_device matching hamstack_graywolf_audio_devices. Set
+      kiss_tnc_only=true for a channel intentionally backed only by a KISS TNC.
+
+- name: Build desired Graywolf channel
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_channel_desired:
+      name: "{{ _hamstack_graywolf_channel.name }}"
+      mode: "{{ _hamstack_graywolf_channel.mode | default('aprs') }}"
+      input_device_id: >-
+        {{
+          none
+          if (_hamstack_graywolf_channel.kiss_tnc_only | default(false) | bool)
+          else (_hamstack_graywolf_audio_by_name[_hamstack_graywolf_channel.input_device].id | int)
+        }}
+      input_channel: "{{ _hamstack_graywolf_channel.input_channel | default(0) | int }}"
+      output_device_id: >-
+        {{
+          0
+          if (_hamstack_graywolf_channel.output_device | default('') | length == 0)
+          else (_hamstack_graywolf_audio_by_name[_hamstack_graywolf_channel.output_device].id | int)
+        }}
+      output_channel: "{{ _hamstack_graywolf_channel.output_channel | default(0) | int }}"
+      modem_type: >-
+        {{
+          _hamstack_graywolf_channel.modem_type
+          | default('afsk' if (_hamstack_graywolf_channel.modem | default('afsk1200')) == 'afsk1200' else _hamstack_graywolf_channel.modem | default('afsk'))
+        }}
+      bit_rate: >-
+        {{
+          _hamstack_graywolf_channel.bit_rate
+          | default(1200 if (_hamstack_graywolf_channel.modem | default('afsk1200')) == 'afsk1200' else 1200)
+          | int
+        }}
+      mark_freq: "{{ _hamstack_graywolf_channel.mark_freq | default(1200) | int }}"
+      space_freq: "{{ _hamstack_graywolf_channel.space_freq | default(2200) | int }}"
+      profile: "{{ _hamstack_graywolf_channel.profile | default('A') }}"
+      num_slicers: "{{ _hamstack_graywolf_channel.num_slicers | default(1) | int }}"
+      fix_bits: "{{ _hamstack_graywolf_channel.fix_bits | default('none') }}"
+      fx25_encode: "{{ _hamstack_graywolf_channel.fx25_encode | default(false) | bool }}"
+      il2p_encode: "{{ _hamstack_graywolf_channel.il2p_encode | default(false) | bool }}"
+      num_decoders: "{{ _hamstack_graywolf_channel.num_decoders | default(1) | int }}"
+      decoder_offset: "{{ _hamstack_graywolf_channel.decoder_offset | default(0) | int }}"
+      enabled: "{{ _hamstack_graywolf_channel.enabled | default(true) | bool }}"
+    _hamstack_graywolf_channel_existing: >-
+      {{ (_hamstack_graywolf_channel_by_name | default({})).get(_hamstack_graywolf_channel.name, {}) }}
+  no_log: true
+
+- name: Build normalized current Graywolf channel
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_channel_current_normalized:
+      name: "{{ _hamstack_graywolf_channel_existing.name | default('') }}"
+      mode: "{{ _hamstack_graywolf_channel_existing.mode | default('') }}"
+      input_device_id: "{{ _hamstack_graywolf_channel_existing.input_device_id | default(none) }}"
+      input_channel: "{{ _hamstack_graywolf_channel_existing.input_channel | default(0) | int }}"
+      output_device_id: "{{ _hamstack_graywolf_channel_existing.output_device_id | default(0) | int }}"
+      output_channel: "{{ _hamstack_graywolf_channel_existing.output_channel | default(0) | int }}"
+      modem_type: "{{ _hamstack_graywolf_channel_existing.modem_type | default('') }}"
+      bit_rate: "{{ _hamstack_graywolf_channel_existing.bit_rate | default(0) | int }}"
+      mark_freq: "{{ _hamstack_graywolf_channel_existing.mark_freq | default(0) | int }}"
+      space_freq: "{{ _hamstack_graywolf_channel_existing.space_freq | default(0) | int }}"
+      profile: "{{ _hamstack_graywolf_channel_existing.profile | default('') }}"
+      num_slicers: "{{ _hamstack_graywolf_channel_existing.num_slicers | default(0) | int }}"
+      fix_bits: "{{ _hamstack_graywolf_channel_existing.fix_bits | default('') }}"
+      fx25_encode: "{{ _hamstack_graywolf_channel_existing.fx25_encode | default(false) | bool }}"
+      il2p_encode: "{{ _hamstack_graywolf_channel_existing.il2p_encode | default(false) | bool }}"
+      num_decoders: "{{ _hamstack_graywolf_channel_existing.num_decoders | default(0) | int }}"
+      decoder_offset: "{{ _hamstack_graywolf_channel_existing.decoder_offset | default(0) | int }}"
+      enabled: "{{ _hamstack_graywolf_channel_existing.enabled | default(true) | bool }}"
+  no_log: true
+
+- name: Create Graywolf channel
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/channels"
+    method: POST
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_channel_desired }}"
+    status_code:
+      - 200
+      - 201
+  no_log: true
+  when: _hamstack_graywolf_channel_existing | length == 0
+
+- name: Update Graywolf channel
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/channels/{{ _hamstack_graywolf_channel_existing.id }}"
+    method: PUT
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_channel_desired }}"
+    status_code:
+      - 200
+      - 204
+  no_log: true
+  when:
+    - _hamstack_graywolf_channel_existing | length > 0
+    - _hamstack_graywolf_channel_current_normalized != _hamstack_graywolf_channel_desired

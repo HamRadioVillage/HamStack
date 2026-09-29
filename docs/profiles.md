@@ -1,0 +1,70 @@
+# HamStack deployment profiles
+
+HamStack roles describe **capabilities**. Profiles describe useful combinations
+of those capabilities for recognizable machines.
+
+Profiles are thin playbooks, not mega-roles. Operators can copy, edit, override,
+or ignore them without changing the underlying role architecture.
+
+## Development workstation
+
+`playbooks/profiles/dev-workstation.yml` prepares an apt/Debian-family machine
+for HamStack development. It expects an already-provided HamStack source tree
+and intentionally has no IDE or Git-hosting opinion.
+
+## Control station
+
+`playbooks/profiles/control-station.yml` prepares the lead volunteer/operator
+workstation that runs HamStack playbooks against conference infrastructure. It
+contains controller dependencies, not shared service workloads.
+
+## HamCube / central service node
+
+`playbooks/profiles/hamcube.yml` expresses the current central service/display
+pattern. Its baseline enables Gatus, CONHAM display, Blur Deck media service,
+and a Chromium kiosk. Technitium DNS and OpenHamClock are opt-in profile
+features. Every profile toggle is inventory-overridable; the profile supplies
+default composition rather than a fixed appliance definition.
+
+When the kiosk toggle is enabled (the default), set `hamstack_operator_user` to the
+existing desktop login that should run Chromium. The profile does not create a desktop
+session or configure display-manager autologin.
+
+The profile is not tied to a literal HamCube. A Pi 5 with NVMe, a mini-PC, or a
+suitable laptop may all fill the same architectural role.
+
+## Running a profile locally
+
+The profile host expression can be overridden. This is useful during initial
+workstation bootstrap:
+
+```bash
+ansible-playbook -i 'localhost,' -c local \
+  playbooks/profiles/control-station.yml \
+  -e hamstack_profile_hosts=localhost \
+  -e hamstack_operator_user="$USER" \
+  -e hamstack_controller_user="$USER" \
+  -e hamstack_controller_repo_path="$PWD" \
+  --ask-become-pass
+```
+
+For normal inventory use, create groups such as `hamcube`, `control_station`, or
+`dev_workstation` and run the profile without the host override. If the source tree
+is not at the role default `~/hamstack`, set `hamstack_controller_repo_path` or
+`hamstack_dev_repo_path` in inventory.
+
+## HamCube profile toggles
+
+The HamCube defaults can be changed in inventory without editing the profile:
+
+```yaml
+hamstack_profile_hamcube_gatus: true
+hamstack_profile_hamcube_conham: true
+hamstack_profile_hamcube_blur_deck: true
+hamstack_profile_hamcube_kiosk: true
+hamstack_profile_hamcube_technitium: false
+hamstack_profile_hamcube_openhamclock: false
+
+# Optional: point the kiosk at something other than local Gatus.
+hamstack_profile_hamcube_kiosk_url: https://conham.hamstack.home.arpa/
+```

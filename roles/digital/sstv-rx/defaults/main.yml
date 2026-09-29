@@ -1,0 +1,19 @@
+---
+# Public configuration defaults for the sstv-rx HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_sstv_rx_enabled: false
+hamstack_sstv_rx_install: true
+hamstack_sstv_rx_backend: qsstv
+hamstack_sstv_rx_sdr_backend: gqrx
+hamstack_sstv_rx_user: '{{ hamstack_operator_user | default('''') }}'
+hamstack_sstv_rx_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
+hamstack_sstv_rx_frequency_mhz: null
+hamstack_sstv_rx_gqrx_device: rtl=0
+hamstack_sstv_rx_gqrx_sample_rate: 2400000
+hamstack_sstv_rx_gqrx_demod: Narrow FM
+hamstack_sstv_rx_gqrx_autostart: true
+hamstack_sstv_rx_qsstv_autostart: true
+hamstack_sstv_rx_pulse_sink: hamstack_sstv
+hamstack_sstv_rx_image_dir: '{{ (hamstack_data_dir | default(''/var/lib/hamstack'')) ~ ''/sstv-rx'' }}'
+hamstack_sstv_rx_blacklist_dvb: false
+hamstack_sstv_rx_extra_settings: {}

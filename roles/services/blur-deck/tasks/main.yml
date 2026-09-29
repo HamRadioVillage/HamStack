@@ -1,0 +1,43 @@
+---
+- name: Deploy Blur Deck DLNA service
+  when: hamstack_blur_deck_enabled | bool
+  block:
+    - name: Install ReadyMedia/MiniDLNA
+      ansible.builtin.apt:
+        name: minidlna
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create Blur Deck media directory
+      ansible.builtin.file:
+        path: "{{ hamstack_blur_deck_media_dir }}"
+        state: directory
+        owner: minidlna
+        group: minidlna
+        mode: "0755"
+
+    - name: Install operator-supplied Blur Deck media
+      ansible.builtin.copy:
+        src: "{{ hamstack_blur_deck_media_source }}"
+        dest: "{{ hamstack_blur_deck_media_dir }}/{{ hamstack_blur_deck_media_filename }}"
+        owner: minidlna
+        group: minidlna
+        mode: "0644"
+      when: hamstack_blur_deck_media_source | length > 0
+      notify: Restart MiniDLNA
+
+    - name: Render MiniDLNA configuration
+      ansible.builtin.template:
+        src: minidlna.conf.j2
+        dest: /etc/minidlna.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart MiniDLNA
+
+    - name: Enable and start MiniDLNA
+      ansible.builtin.service:
+        name: minidlna
+        enabled: "{{ hamstack_blur_deck_autostart | bool }}"
+        state: started

@@ -1,0 +1,144 @@
+{% if hamstack_gatus_storage == 'sqlite' %}
+storage:
+  type: sqlite
+  path: /data/gatus.db
+{% endif %}
+
+endpoints:
+{% if hamstack_gatus_include_self_check %}
+  - name: Gatus self
+    group: HamStack services
+    url: http://{{ hamstack_gatus_container_name }}:8080/health
+    interval: {{ hamstack_gatus_interval | to_json }}
+    conditions:
+      - "[STATUS] == 200"
+{% endif %}
+{% set ns = namespace(count=0) %}
+{% if hamstack_gatus_auto_node_checks %}
+{% for host in groups.get('all', []) | sort %}
+{% if host != inventory_hostname and (hostvars[host].hamstack_gatus_monitor_node | default(true)) %}
+  - name: {{ host | to_json }}
+    group: HamStack nodes
+    url: {{ ('icmp://' ~ (hostvars[host].ansible_host | default(host))) | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    conditions:
+      - "[CONNECTED] == true"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if hamstack_gatus_auto_service_checks %}
+{% for host in groups.get('all', []) | sort %}
+{% set h = hostvars[host] %}
+{% set addr = h.ansible_host | default(host) %}
+{% if h.hamstack_dcdash_enabled | default(false) %}
+  - name: {{ (host ~ ' / DCDash') | to_json }}
+    group: HamStack services
+    url: {{ ('https://' ~ addr ~ ':' ~ (h.hamstack_dcdash_port | default(8450) | string) ~ '/health') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    client:
+      insecure: true
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_openhamclock_enabled | default(false) %}
+  - name: {{ (host ~ ' / OpenHamClock') | to_json }}
+    group: HamStack services
+    url: {{ ('https://' ~ addr ~ ':' ~ (h.hamstack_openhamclock_https_port | default(8449) | string) ~ '/') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    client:
+      insecure: true
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_openwebrx_enabled | default(false) %}
+  - name: {{ (host ~ ' / OpenWebRX') | to_json }}
+    group: HamStack services
+    url: {{ ('https://' ~ addr ~ ':' ~ (h.hamstack_openwebrx_https_port | default(8444) | string) ~ '/') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    client:
+      insecure: true
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_linbpq_enabled | default(false) and h.hamstack_linbpq_web_enabled | default(true) %}
+  - name: {{ (host ~ ' / LinBPQ web') | to_json }}
+    group: HamStack packet
+    url: {{ ('http://' ~ addr ~ ':' ~ (h.hamstack_linbpq_web_port | default(8080) | string) ~ '/') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_technitium_dns_enabled | default(false) %}
+  - name: {{ (host ~ ' / Technitium DNS') | to_json }}
+    group: HamStack infrastructure
+    url: {{ ('https://' ~ addr ~ ':' ~ (h.hamstack_technitium_dns_https_port | default(8447) | string) ~ '/') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    client:
+      insecure: true
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_winlink_enabled | default(false) and h.hamstack_winlink_service_enabled | default(true) and h.hamstack_winlink_gatus_enabled | default(false) %}
+  - name: {{ (host ~ ' / Pat Winlink') | to_json }}
+    group: HamStack packet
+    url: {{ ('http://' ~ addr ~ ':' ~ (h.hamstack_winlink_http_port | default(8081) | string) ~ '/') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_ft8web_enabled | default(false) %}
+  - name: {{ (host ~ ' / FT8Web') | to_json }}
+    group: HamStack digital
+    url: {{ ('https://' ~ addr ~ ':' ~ (h.hamstack_ft8web_https_port | default(8448) | string) ~ '/') | to_json }}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    client:
+      insecure: true
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endif %}
+{% if h.hamstack_aredn_enabled | default(false) and h.hamstack_aredn_gatus_enabled | default(true) %}
+{% for node in h.hamstack_aredn_nodes | default([]) %}
+  - name: {{ ('AREDN / ' ~ node.name) | to_json }}
+    group: HamStack network
+{% if node.url is defined and node.url | length > 0 %}
+    url: {{ (node.url ~ '/a/sysinfo') | to_json }}
+{% else %}
+    url: {{ (('http://' ~ node.host) ~ '/a/sysinfo') | to_json }}
+{% endif %}
+    interval: {{ hamstack_gatus_interval | to_json }}
+    conditions:
+      - "[STATUS] == 200"
+{% set ns.count = ns.count + 1 %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% for endpoint in hamstack_gatus_endpoints %}
+  - name: {{ endpoint.name | to_json }}
+{% if endpoint.group is defined %}
+    group: {{ endpoint.group | to_json }}
+{% endif %}
+    url: {{ endpoint.url | to_json }}
+    interval: {{ endpoint.interval | default(hamstack_gatus_interval) | to_json }}
+{% if endpoint.client is defined %}
+    client: {{ endpoint.client | to_nice_yaml(indent=2) | indent(6, true) | trim }}
+{% endif %}
+    conditions:
+{% for condition in endpoint.conditions | default(['[CONNECTED] == true']) %}
+      - {{ condition | to_json }}
+{% endfor %}
+{% endfor %}
+{% if not hamstack_gatus_include_self_check and ns.count == 0 and (hamstack_gatus_endpoints | length == 0) %}
+  []
+{% endif %}
+{% for key, value in hamstack_gatus_extra_config | dictsort %}
+{{ key }}: {{ value | to_nice_yaml(indent=2) | trim }}
+{% endfor %}

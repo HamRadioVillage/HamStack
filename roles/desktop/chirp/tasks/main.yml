@@ -1,0 +1,174 @@
+---
+- name: Install CHIRP-next workstation capability
+  when: hamstack_chirp_enabled | bool
+  block:
+    - name: Validate CHIRP platform and method
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_chirp_user | length > 0
+          - hamstack_chirp_install_method in ['appimage', 'wheel']
+          - hamstack_chirp_install_method != 'appimage' or ansible_facts['architecture'] == 'x86_64'
+        fail_msg: >-
+          CHIRP supports the recommended AppImage method on x86_64 Linux and
+          the upstream wheel/pipx method as an alternate installation path.
+
+    - name: Validate CHIRP AppImage artifact source
+      ansible.builtin.assert:
+        that:
+          - hamstack_chirp_appimage_src | length > 0 or hamstack_chirp_appimage_url | length > 0
+          - hamstack_chirp_appimage_checksum | length == 0 or hamstack_chirp_appimage_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
+        fail_msg: >-
+          CHIRP's public archive may reject unattended downloads. Set
+          hamstack_chirp_appimage_src to a controller-local AppImage or set
+          hamstack_chirp_appimage_url to an explicitly authorized/reachable
+          artifact URL. Optional hamstack_chirp_appimage_checksum values must
+          use sha256:<64-hex-digest>.
+      when: hamstack_chirp_install_method == 'appimage'
+
+    - name: Install CHIRP wheel dependencies
+      ansible.builtin.apt:
+        name:
+          - python3-wxgtk4.0
+          - pipx
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_chirp_install_method == 'wheel'
+
+    - name: Read CHIRP operator account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_chirp_user }}"
+
+    - name: Read CHIRP operator primary group
+      ansible.builtin.command:
+        cmd: "id -gn {{ hamstack_chirp_user }}"
+      register: _hamstack_chirp_group
+      changed_when: false
+
+    - name: Remember CHIRP operator home
+      ansible.builtin.set_fact:
+        _hamstack_chirp_home: "{{ ansible_facts.getent_passwd[hamstack_chirp_user][4] }}"
+
+    - name: Add CHIRP operator to serial groups
+      ansible.builtin.user:
+        name: "{{ hamstack_chirp_user }}"
+        groups: "{{ hamstack_chirp_serial_groups }}"
+        append: true
+
+    - name: Create CHIRP cache directory
+      ansible.builtin.file:
+        path: "{{ hamstack_chirp_cache_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create CHIRP AppImage install directory
+      ansible.builtin.file:
+        path: "{{ hamstack_chirp_install_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      when: hamstack_chirp_install_method == 'appimage'
+
+    - name: Install controller-supplied CHIRP-next AppImage
+      ansible.builtin.copy:
+        src: "{{ hamstack_chirp_appimage_src }}"
+        dest: "{{ hamstack_chirp_install_dir }}/Chirp-next-{{ hamstack_chirp_version }}-x86_64.AppImage"
+        owner: root
+        group: root
+        mode: '0755'
+      when:
+        - hamstack_chirp_install_method == 'appimage'
+        - hamstack_chirp_appimage_src | length > 0
+
+    - name: Download explicitly configured CHIRP-next AppImage
+      ansible.builtin.get_url:
+        url: "{{ hamstack_chirp_appimage_url }}"
+        dest: "{{ hamstack_chirp_install_dir }}/Chirp-next-{{ hamstack_chirp_version }}-x86_64.AppImage"
+        mode: '0755'
+        http_agent: "{{ hamstack_chirp_http_agent }}"
+        checksum: "{{ hamstack_chirp_appimage_checksum if hamstack_chirp_appimage_checksum | length > 0 else omit }}"
+      when:
+        - hamstack_chirp_install_method == 'appimage'
+        - hamstack_chirp_appimage_src | length == 0
+        - hamstack_chirp_appimage_url | length > 0
+
+    - name: Read installed CHIRP AppImage checksum
+      ansible.builtin.stat:
+        path: "{{ hamstack_chirp_install_dir }}/Chirp-next-{{ hamstack_chirp_version }}-x86_64.AppImage"
+        checksum_algorithm: sha256
+      register: _hamstack_chirp_appimage_stat
+      when:
+        - hamstack_chirp_install_method == 'appimage'
+        - hamstack_chirp_appimage_checksum | length > 0
+
+    - name: Verify controller-supplied CHIRP AppImage checksum
+      ansible.builtin.assert:
+        that:
+          - _hamstack_chirp_appimage_stat.stat.checksum == hamstack_chirp_appimage_checksum.split(':', 1)[1] | lower
+        fail_msg: CHIRP AppImage SHA-256 checksum does not match hamstack_chirp_appimage_checksum.
+      when:
+        - hamstack_chirp_install_method == 'appimage'
+        - hamstack_chirp_appimage_checksum | length > 0
+
+    - name: Expose CHIRP AppImage on the system path
+      ansible.builtin.file:
+        src: "{{ hamstack_chirp_install_dir }}/Chirp-next-{{ hamstack_chirp_version }}-x86_64.AppImage"
+        dest: /usr/local/bin/chirp
+        state: link
+        force: true
+      when: hamstack_chirp_install_method == 'appimage'
+
+    - name: Download CHIRP-next wheel
+      ansible.builtin.get_url:
+        url: "{{ hamstack_chirp_wheel_url }}"
+        dest: "{{ hamstack_chirp_cache_dir }}/chirp-{{ hamstack_chirp_version }}.whl"
+        mode: '0644'
+        http_agent: "{{ hamstack_chirp_http_agent }}"
+      register: _hamstack_chirp_wheel
+      when: hamstack_chirp_install_method == 'wheel'
+
+    - name: Check whether CHIRP-next wheel install is already present
+      ansible.builtin.stat:
+        path: "{{ _hamstack_chirp_home }}/.local/bin/chirp"
+      register: _hamstack_chirp_binary
+      when: hamstack_chirp_install_method == 'wheel'
+
+    - name: Install CHIRP-next for operator with pipx
+      ansible.builtin.command:
+        cmd: >-
+          pipx install --system-site-packages --force
+          {{ hamstack_chirp_cache_dir }}/chirp-{{ hamstack_chirp_version }}.whl
+      become_user: "{{ hamstack_chirp_user }}"
+      changed_when: true
+      when:
+        - hamstack_chirp_install_method == 'wheel'
+        - _hamstack_chirp_wheel.changed or not _hamstack_chirp_binary.stat.exists
+
+    - name: Remember CHIRP executable path
+      ansible.builtin.set_fact:
+        _hamstack_chirp_executable: >-
+          {{ '/usr/local/bin/chirp' if hamstack_chirp_install_method == 'appimage'
+             else _hamstack_chirp_home ~ '/.local/bin/chirp' }}
+
+    - name: Create CHIRP applications directory
+      ansible.builtin.file:
+        path: "{{ _hamstack_chirp_home }}/.local/share/applications"
+        state: directory
+        owner: "{{ hamstack_chirp_user }}"
+        group: "{{ _hamstack_chirp_group.stdout }}"
+        mode: '0755'
+      when: hamstack_chirp_desktop_entry | bool
+
+    - name: Install CHIRP desktop entry
+      ansible.builtin.template:
+        src: chirp.desktop.j2
+        dest: "{{ _hamstack_chirp_home }}/.local/share/applications/hamstack-chirp.desktop"
+        owner: "{{ hamstack_chirp_user }}"
+        group: "{{ _hamstack_chirp_group.stdout }}"
+        mode: '0644'
+      when: hamstack_chirp_desktop_entry | bool

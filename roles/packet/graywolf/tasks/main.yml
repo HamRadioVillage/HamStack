@@ -1,0 +1,140 @@
+---
+- name: Manage Graywolf
+  when: hamstack_graywolf_enabled | bool
+  block:
+    - name: Verify Graywolf platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts["os_family"] == "Debian"
+          - ansible_facts["architecture"] in ['x86_64', 'aarch64', 'armv7l', 'armv6l']
+        fail_msg: >-
+          The Graywolf installer supports Debian-family systems on x86_64,
+          aarch64, armv7l, and armv6l. Set hamstack_graywolf_package_url and
+          extend the role for another platform.
+
+    - name: Install Graywolf Debian-package prerequisite
+      ansible.builtin.apt:
+        name: xz-utils
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_graywolf_install | bool
+
+    - name: Map architecture to Graywolf Debian asset suffix
+      ansible.builtin.set_fact:
+        _hamstack_graywolf_deb_arch: >-
+          {{
+            {
+              'x86_64': 'amd64',
+              'aarch64': 'arm64',
+              'armv7l': 'armv7l',
+              'armv6l': 'armhf'
+            }[ansible_facts['architecture']]
+          }}
+      when: hamstack_graywolf_install | bool
+
+    - name: Query Graywolf release metadata
+      ansible.builtin.uri:
+        url: >-
+          {{
+            'https://api.github.com/repos/chrissnell/graywolf/releases/latest'
+            if hamstack_graywolf_version == 'latest'
+            else
+            'https://api.github.com/repos/chrissnell/graywolf/releases/tags/v'
+            ~ (hamstack_graywolf_version | regex_replace('^v', ''))
+          }}
+        return_content: true
+        headers:
+          Accept: application/vnd.github+json
+      register: _hamstack_graywolf_release
+      when:
+        - hamstack_graywolf_install | bool
+        - hamstack_graywolf_package_url | length == 0
+
+    - name: Derive expected Graywolf Debian asset name
+      ansible.builtin.set_fact:
+        _hamstack_graywolf_asset_name: >-
+          graywolf_{{ _hamstack_graywolf_release.json.tag_name | regex_replace('^v', '') }}_{{ _hamstack_graywolf_deb_arch }}.deb
+      when:
+        - hamstack_graywolf_install | bool
+        - hamstack_graywolf_package_url | length == 0
+
+    - name: Select Graywolf release package
+      ansible.builtin.set_fact:
+        _hamstack_graywolf_download_url: >-
+          {{
+            (
+              _hamstack_graywolf_release.json.assets
+              | selectattr('name', 'equalto', _hamstack_graywolf_asset_name)
+              | map(attribute='browser_download_url')
+              | list
+              | first
+            )
+            | default('', true)
+          }}
+      when:
+        - hamstack_graywolf_install | bool
+        - hamstack_graywolf_package_url | length == 0
+
+    - name: Use explicit Graywolf package URL
+      ansible.builtin.set_fact:
+        _hamstack_graywolf_download_url: "{{ hamstack_graywolf_package_url }}"
+      when:
+        - hamstack_graywolf_install | bool
+        - hamstack_graywolf_package_url | length > 0
+
+    - name: Verify a Graywolf package was found
+      ansible.builtin.assert:
+        that:
+          - _hamstack_graywolf_download_url | length > 0
+        fail_msg: >-
+          Could not locate the expected Graywolf Debian package
+          {{ _hamstack_graywolf_asset_name | default('for this architecture') }}.
+          Available release assets: {{
+            _hamstack_graywolf_release.json.assets
+            | default([])
+            | map(attribute='name')
+            | list
+            | join(', ')
+          }}. Pin hamstack_graywolf_package_url to a compatible .deb if the
+          upstream asset naming changes.
+      when: hamstack_graywolf_install | bool
+
+    - name: Create HamStack package cache
+      ansible.builtin.file:
+        path: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: hamstack_graywolf_install | bool
+
+    - name: Download Graywolf package
+      ansible.builtin.get_url:
+        url: "{{ _hamstack_graywolf_download_url }}"
+        dest: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/graywolf.deb"
+        mode: "0644"
+      when: hamstack_graywolf_install | bool
+
+    - name: Install Graywolf package
+      ansible.builtin.apt:
+        deb: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/graywolf.deb"
+        state: present
+      when: hamstack_graywolf_install | bool
+
+    - name: Enable and start Graywolf
+      ansible.builtin.systemd:
+        name: graywolf
+        enabled: true
+        state: started
+      when: hamstack_graywolf_autostart | bool
+
+    - name: Disable Graywolf autostart when requested
+      ansible.builtin.systemd:
+        name: graywolf
+        enabled: false
+      when: not (hamstack_graywolf_autostart | bool)
+
+    - name: Converge Graywolf operational configuration through its API
+      ansible.builtin.include_tasks: api.yml
+      when: hamstack_graywolf_manage_api | bool

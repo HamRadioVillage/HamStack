@@ -1,0 +1,17 @@
+---
+hamstack_gridtracker_enabled: false
+hamstack_gridtracker_install: true
+hamstack_gridtracker_version: '2.260925.2'
+hamstack_gridtracker_package_url: ''
+hamstack_gridtracker_base_url: https://download2.gridtracker.org
+hamstack_gridtracker_download_page: https://gridtracker.org/index.php/downloads/gridtracker-downloads
+hamstack_gridtracker_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_gridtracker_grid_locator: "{{ hamstack_grid_locator | default('') }}"
+hamstack_gridtracker_wsjtx_host: 127.0.0.1
+hamstack_gridtracker_wsjtx_port: 2237
+hamstack_gridtracker_logging_backend: ''
+hamstack_gridtracker_logging_url: ''
+hamstack_gridtracker_autostart: false
+hamstack_gridtracker_executable: /usr/bin/gridtracker2
+hamstack_gridtracker_config_dir: ''
+hamstack_gridtracker_extra_settings: {}

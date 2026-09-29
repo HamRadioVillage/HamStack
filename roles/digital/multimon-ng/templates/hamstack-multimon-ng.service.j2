@@ -1,0 +1,14 @@
+[Unit]
+Description=HamStack multimon-ng decoder
+After=sound.target network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/hamstack-multimon-ng
+Restart=on-failure
+RestartSec=3
+StandardOutput=append:{{ hamstack_multimon_ng_output_file }}
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

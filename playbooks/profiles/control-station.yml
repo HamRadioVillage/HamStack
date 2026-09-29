@@ -1,0 +1,9 @@
+---
+- name: Configure HamStack conference control station profile
+  hosts: "{{ hamstack_profile_hosts | default('control_station') }}"
+  become: true
+  roles:
+    - role: common
+    - role: desktop/hamstack-controller
+      vars:
+        hamstack_controller_enabled: true

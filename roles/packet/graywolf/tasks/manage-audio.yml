@@ -1,0 +1,69 @@
+---
+- name: Validate Graywolf audio device definition
+  ansible.builtin.assert:
+    that:
+      - _hamstack_graywolf_audio.name | default('') | length > 0
+      - _hamstack_graywolf_audio.direction | default('') in ['input', 'output']
+      - _hamstack_graywolf_audio.source_type | default('soundcard') in ['soundcard', 'flac', 'stdin', 'sdr_udp']
+      - _hamstack_graywolf_audio.device_path | default('') | length > 0
+    fail_msg: >-
+      Each Graywolf audio device requires name, direction=input|output, and
+      device_path. source_type defaults to soundcard.
+
+- name: Build desired Graywolf audio device
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_audio_desired:
+      name: "{{ _hamstack_graywolf_audio.name }}"
+      direction: "{{ _hamstack_graywolf_audio.direction }}"
+      source_type: "{{ _hamstack_graywolf_audio.source_type | default('soundcard') }}"
+      device_path: "{{ _hamstack_graywolf_audio.device_path }}"
+      sample_rate: "{{ _hamstack_graywolf_audio.sample_rate | default(48000) | int }}"
+      channels: "{{ _hamstack_graywolf_audio.channels | default(1) | int }}"
+      format: "{{ _hamstack_graywolf_audio.format | default('s16le') }}"
+      gain_db: "{{ _hamstack_graywolf_audio.gain_db | default(0) | float }}"
+    _hamstack_graywolf_audio_existing: >-
+      {{ (_hamstack_graywolf_audio_by_name | default({})).get(_hamstack_graywolf_audio.name, {}) }}
+  no_log: true
+
+- name: Build normalized current Graywolf audio device
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_audio_current_normalized:
+      name: "{{ _hamstack_graywolf_audio_existing.name | default('') }}"
+      direction: "{{ _hamstack_graywolf_audio_existing.direction | default('') }}"
+      source_type: "{{ _hamstack_graywolf_audio_existing.source_type | default('') }}"
+      device_path: "{{ _hamstack_graywolf_audio_existing.device_path | default('') }}"
+      sample_rate: "{{ _hamstack_graywolf_audio_existing.sample_rate | default(0) | int }}"
+      channels: "{{ _hamstack_graywolf_audio_existing.channels | default(0) | int }}"
+      format: "{{ _hamstack_graywolf_audio_existing.format | default('') }}"
+      gain_db: "{{ _hamstack_graywolf_audio_existing.gain_db | default(0) | float }}"
+  no_log: true
+
+- name: Create Graywolf audio device
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/audio-devices"
+    method: POST
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_audio_desired }}"
+    status_code:
+      - 200
+      - 201
+  no_log: true
+  when: _hamstack_graywolf_audio_existing | length == 0
+
+- name: Update Graywolf audio device
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/audio-devices/{{ _hamstack_graywolf_audio_existing.id }}"
+    method: PUT
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_audio_desired }}"
+    status_code:
+      - 200
+      - 204
+  no_log: true
+  when:
+    - _hamstack_graywolf_audio_existing | length > 0
+    - _hamstack_graywolf_audio_current_normalized != _hamstack_graywolf_audio_desired

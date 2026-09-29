@@ -1,0 +1,8 @@
+---
+hamstack_netlogger_enabled: false
+hamstack_netlogger_user: "{{ hamstack_operator_user | default('') }}"
+hamstack_netlogger_package_url: ''
+hamstack_netlogger_package_src: ''
+hamstack_netlogger_package_filename: netlogger.deb
+hamstack_netlogger_cache_dir: "{{ (hamstack_cache_dir | default('/var/cache/hamstack')) ~ '/netlogger' }}"
+hamstack_netlogger_extra_packages: []

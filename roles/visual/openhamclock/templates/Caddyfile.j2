@@ -1,0 +1,4 @@
+https://{{ hamstack_openhamclock_tls_host }} {
+    tls internal
+    reverse_proxy {{ hamstack_openhamclock_container_name }}:3000
+}

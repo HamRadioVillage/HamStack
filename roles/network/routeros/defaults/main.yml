@@ -1,0 +1,18 @@
+---
+hamstack_role_target: network_device
+hamstack_routeros_enabled: false
+hamstack_network_hostname: ''
+hamstack_network_vendor: ''
+hamstack_network_model: ''
+hamstack_network_lans: []
+hamstack_network_wifi: []
+hamstack_network_routes: []
+hamstack_network_firewall_zones: []
+hamstack_network_dns_servers: []
+hamstack_network_extra_settings: {}
+hamstack_routeros_api_port: 8729
+hamstack_routeros_api_tls: true
+hamstack_routeros_api_validate_certs: false
+hamstack_routeros_api_username: "{{ ansible_user | default('admin') }}"
+hamstack_routeros_api_password: "{{ ansible_password | default(vault_hamstack_routeros_password | default('')) }}"
+hamstack_routeros_native_paths: []

@@ -1,0 +1,10 @@
+---
+- name: Reload systemd for multimon-ng
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart HamStack multimon-ng
+  ansible.builtin.systemd:
+    name: hamstack-multimon-ng
+    state: restarted
+  when: hamstack_multimon_ng_service_enabled | bool

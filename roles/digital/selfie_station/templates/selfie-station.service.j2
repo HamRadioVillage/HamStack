@@ -1,0 +1,15 @@
+[Unit]
+Description=HamStack SSTV Selfie Station
+After=network.target sound.target
+
+[Service]
+Type=simple
+User={{ hamstack_selfie_station_user }}
+SupplementaryGroups=audio dialout video input
+WorkingDirectory={{ hamstack_selfie_station_install_dir }}
+ExecStart={{ hamstack_selfie_station_venv_dir }}/bin/python3 {{ hamstack_selfie_station_install_dir }}/selfie_station.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

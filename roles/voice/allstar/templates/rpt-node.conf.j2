@@ -1,0 +1,9 @@
+[{{ hamstack_allstar_node_number }}](node-main)
+rxchannel = {{ ('SimpleUSB/' ~ (hamstack_allstar_node_number | string)) if hamstack_allstar_channel_driver == 'simpleusb' else (('Radio/' ~ (hamstack_allstar_node_number | string)) if hamstack_allstar_channel_driver == 'usbradio' else 'dahdi/pseudo') }}
+duplex = {{ hamstack_allstar_duplex }}
+{% if hamstack_allstar_id_recording | length > 0 %}
+idrecording = {{ hamstack_allstar_id_recording }}
+{% endif %}
+{% for key, value in hamstack_allstar_extra_settings | dictsort %}
+{{ key }} = {{ value }}
+{% endfor %}

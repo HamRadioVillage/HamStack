@@ -1,0 +1,152 @@
+---
+# Host-specific configuration and shared hardware resources.
+#
+# Rename this file to match the inventory hostname in hosts.yml.
+
+hamstack_manage_hostname: false
+hamstack_hostname: example-node
+
+# Linux desktop/session account used by GUI-oriented roles.
+hamstack_operator_user: ''
+
+# Shared hardware registry.
+# Multiple roles on this host may reference the same named resource.
+hamstack_devices:
+  aioc_main:
+    type: aioc
+    description: Primary AIOC radio interface
+    match:
+      usb_vendor_id: ""
+      usb_product_id: ""
+      usb_serial: ""
+    endpoints:
+      serial: ""
+      audio_capture: ""
+      audio_playback: ""
+    options: {}
+
+  camera_main:
+    type: camera
+    description: Example camera
+    match: {}
+    endpoints:
+      video: ""
+    options: {}
+
+  trigger_pedal:
+    type: hid
+    description: Example USB trigger/pedal
+    match:
+      usb_vendor_id: ""
+      usb_product_id: ""
+      usb_serial: ""
+    endpoints:
+      hid: ""
+    options: {}
+
+  gps_main:
+    type: gps
+    description: Example GNSS receiver
+    match: {}
+    endpoints:
+      serial: ""
+      pps: ""
+    options: {}
+
+  sdr_main:
+    type: rtl_sdr
+    description: Example USB SDR
+    match: {}
+    endpoints:
+      usb: ""
+    options: {}
+
+# Shared radio registry.
+# A radio can refer to an interface from hamstack_devices.
+hamstack_radios:
+  uhf_main:
+    model: Generic UHF radio
+    description: Example UHF packet/SSTV radio
+    interface: aioc_main
+    cat: {}
+    ptt: {}
+    options: {}
+
+# Role-specific settings belong in host_vars when they vary by node.
+# Uncomment and edit only the roles this node will use.
+#
+# Graywolf can be used independently of packet/aprs as a modem/TNC/KISS layer.
+# hamstack_graywolf_enabled: true
+# hamstack_graywolf_manage_api: true
+# hamstack_graywolf_audio_devices:
+#   - name: packet_rx
+#     direction: input
+#     source_type: soundcard
+#     device_path: plughw:CARD=Device,DEV=0
+#   - name: packet_tx
+#     direction: output
+#     source_type: soundcard
+#     device_path: plughw:CARD=Device,DEV=0
+# hamstack_graywolf_channels:
+#   - name: uhf_packet
+#     mode: packet
+#     input_device: packet_rx
+#     output_device: packet_tx
+#     modem: afsk1200
+#     frequency_mhz: null
+#     kiss:
+#       enabled: true
+#       type: tcp
+#       listen_address: 127.0.0.1
+#       port: 8001
+#       mode: modem
+#       allow_connected_mode: true
+#
+# Receive-only RTL-SDR SSTV appliance (for example a HamPi-02-style node).
+# hamstack_sstv_rx_enabled: true
+# hamstack_sstv_rx_frequency_mhz: null  # REQUIRED: initial GQRX RX frequency.
+# hamstack_sstv_rx_user: operator      # Desktop user for GQRX + QSSTV.
+#
+# General-purpose interactive QSSTV workstation.
+# hamstack_sstv_workstation_enabled: true
+# hamstack_sstv_workstation_user: operator
+# hamstack_sstv_workstation_radio: uhf_main
+# hamstack_sstv_workstation_interface: aioc_main
+
+# AllStarLink ASL3 example (ASL3 itself must already be installed/imaged).
+# This role owns its rendered ASL3 config files; put manual additions under
+# /etc/asterisk/custom rather than editing the managed files directly.
+#
+# hamstack_allstar_enabled: true
+# hamstack_allstar_node_number: 123456
+# hamstack_allstar_callsign: N0CALL
+# hamstack_allstar_duplex: 1
+# hamstack_allstar_channel_driver: simpleusb
+# hamstack_allstar_register: true
+#
+# Optional SA818/DRA818 programming. These values also populate the saved
+# sa818-menu configuration in /etc/sa818.conf.
+# hamstack_allstar_sa818_enabled: true
+# hamstack_allstar_sa818_band: UHF
+# hamstack_allstar_sa818_bandwidth: Wide
+# hamstack_allstar_sa818_rx_frequency: "446.5000"
+# hamstack_allstar_sa818_tx_frequency: "446.5000"
+# hamstack_allstar_sa818_squelch: 1
+# hamstack_allstar_sa818_volume: 1
+# hamstack_allstar_sa818_tone: None
+# hamstack_allstar_sa818_port: /dev/ttyUSB0
+# hamstack_allstar_sa818_speed: 9600
+
+
+# Optional reproducible custom DMR master via WPSD DMRGateway.
+# HRV URF478 example: direct TG 4001 on timeslot 2, no alternate-network prefix.
+# hamstack_wpsd_manage_dmr_custom_network: true
+# hamstack_wpsd_dmr_custom_network_name: HRV_URF478
+# hamstack_wpsd_dmr_custom_network_address: urf.hamvillage.org
+# hamstack_wpsd_dmr_custom_network_port: 62030
+# Password: set vault_hamstack_wpsd_dmr_custom_network_password in encrypted Vault.
+# hamstack_wpsd_dmr_custom_network_auto_rewrites: false
+# hamstack_wpsd_dmr_custom_network_exclusive: true
+# hamstack_wpsd_dmr_custom_network_rules:
+#   - option: TGRewrite0
+#     value: "2,4001,2,4001,1"

@@ -1,0 +1,9 @@
+---
+- name: Configure HamStack development workstation profile
+  hosts: "{{ hamstack_profile_hosts | default('dev_workstation') }}"
+  become: true
+  roles:
+    - role: common
+    - role: desktop/hamstack-dev
+      vars:
+        hamstack_dev_enabled: true

@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+{% if hamstack_kiosk_disable_blanking %}
+if command -v xset >/dev/null 2>&1; then
+  xset s off || true
+  xset s noblank || true
+  xset -dpms || true
+fi
+{% endif %}
+{% if hamstack_kiosk_rotation != 'normal' and hamstack_kiosk_output | length > 0 %}
+if command -v xrandr >/dev/null 2>&1; then
+  xrandr --output {{ hamstack_kiosk_output | quote }} --rotate {{ hamstack_kiosk_rotation | quote }} || true
+fi
+{% endif %}
+{% if hamstack_kiosk_hide_cursor %}
+if command -v unclutter >/dev/null 2>&1; then
+  unclutter -idle 0.5 -root >/dev/null 2>&1 &
+fi
+{% endif %}
+
+exec {{ hamstack_kiosk_browser_binary | quote }} \
+{% for arg in hamstack_kiosk_browser_args %}
+  {{ arg | quote }} \
+{% endfor %}
+  {{ hamstack_kiosk_url | quote }}

@@ -1,0 +1,11 @@
+[General]
+configversion=4
+crashed=false
+
+[input]
+device={{ hamstack_sstv_rx_gqrx_device }}
+sample_rate={{ hamstack_sstv_rx_gqrx_sample_rate | int }}
+frequency={{ ((hamstack_sstv_rx_frequency_mhz | float) * 1000000) | int }}
+
+[receiver]
+demod={{ hamstack_sstv_rx_gqrx_demod }}

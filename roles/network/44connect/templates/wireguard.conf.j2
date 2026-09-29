@@ -1,0 +1,13 @@
+# Managed by HamStack. Local edits will be overwritten.
+[Interface]
+PrivateKey = {{ hamstack_44connect_private_key }}
+Address = {{ hamstack_44connect_address }}
+{% if hamstack_44connect_mtu is not none %}MTU = {{ hamstack_44connect_mtu }}
+{% endif %}{% if hamstack_44connect_dns_servers | length > 0 %}DNS = {{ hamstack_44connect_dns_servers | join(', ') }}
+{% endif %}
+[Peer]
+PublicKey = {{ hamstack_44connect_peer_public_key }}
+{% if hamstack_44connect_preshared_key | length > 0 %}PresharedKey = {{ hamstack_44connect_preshared_key }}
+{% endif %}Endpoint = {{ hamstack_44connect_peer_endpoint }}
+AllowedIPs = {{ (_hamstack_44connect_effective_allowed_ips + hamstack_44connect_routes) | unique | join(', ') }}
+PersistentKeepalive = {{ hamstack_44connect_persistent_keepalive }}

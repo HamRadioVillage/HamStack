@@ -1,0 +1,38 @@
+#!ipxe
+set menu-timeout 8000
+set submenu-timeout ${menu-timeout}
+
+:start
+menu {{ hamstack_netboot_menu_title }}
+{% for entry in hamstack_netboot_entries %}
+item {{ entry.id }} {{ entry.label | default(entry.id) }}
+{% endfor %}
+item shell iPXE shell
+item reboot Reboot
+choose --timeout ${menu-timeout} --default shell selected || goto shell
+goto ${selected}
+
+{% for entry in hamstack_netboot_entries %}
+:{{ entry.id }}
+{% if entry.chain is defined %}
+chain {{ entry.chain }} || goto failed
+{% else %}
+kernel {{ entry.kernel }}{% if entry.args is defined and entry.args | length > 0 %} {{ entry.args }}{% endif %}
+{% if entry.initrd is defined and entry.initrd | length > 0 %}
+initrd {{ entry.initrd }}
+{% endif %}
+boot || goto failed
+{% endif %}
+
+{% endfor %}
+:shell
+shell
+exit
+
+:failed
+echo Boot failed. Dropping to shell.
+shell
+exit
+
+:reboot
+reboot

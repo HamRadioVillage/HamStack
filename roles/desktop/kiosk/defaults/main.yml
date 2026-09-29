@@ -1,0 +1,17 @@
+---
+hamstack_kiosk_enabled: false
+hamstack_kiosk_user: "{{ hamstack_operator_user | default('') }}"
+hamstack_kiosk_url: 'https://127.0.0.1/'
+hamstack_kiosk_browser_package: chromium
+hamstack_kiosk_browser_binary: /usr/bin/chromium
+hamstack_kiosk_autostart: true
+hamstack_kiosk_disable_blanking: true
+hamstack_kiosk_hide_cursor: true
+hamstack_kiosk_rotation: normal
+hamstack_kiosk_output: ''
+hamstack_kiosk_browser_args:
+  - --kiosk
+  - --no-first-run
+  - --disable-session-crashed-bubble
+  - --disable-infobars
+hamstack_kiosk_extra_packages: []

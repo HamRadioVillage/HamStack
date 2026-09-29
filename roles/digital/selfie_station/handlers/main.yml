@@ -1,0 +1,7 @@
+---
+- name: Restart selfie station
+  ansible.builtin.systemd:
+    name: hamstack-selfie-station
+    state: restarted
+    daemon_reload: true
+  when: hamstack_selfie_station_autostart | bool

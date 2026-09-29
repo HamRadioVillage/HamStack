@@ -1,0 +1,24 @@
+---
+- name: Configure OpenWrt/GL.iNet network device
+  when: hamstack_openwrt_enabled | bool
+  block:
+    - name: Validate OpenWrt logical model
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - item.name is match('^[A-Za-z0-9_]+$')
+          - item.address is defined
+        fail_msg: "Each hamstack_network_lans entry needs a UCI-safe name and address."
+      loop: "{{ hamstack_network_lans }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Verify target exposes OpenWrt UCI
+      ansible.builtin.raw: command -v uci && uci -q get system.@system[0].hostname
+      changed_when: false
+
+    - name: Apply HamStack OpenWrt UCI configuration
+      ansible.builtin.raw: "{{ lookup('template', 'apply-uci.sh.j2') }}"
+      no_log: "{{ (hamstack_network_wifi | selectattr('key', 'defined') | list | length) > 0 }}"
+      register: _hamstack_openwrt_apply
+      changed_when: true

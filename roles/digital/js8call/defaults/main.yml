@@ -1,0 +1,9 @@
+---
+hamstack_js8call_enabled: false
+hamstack_js8call_user: "{{ hamstack_operator_user | default('') }}"
+hamstack_js8call_version: 3.0.3
+hamstack_js8call_install_dir: /opt/hamstack/js8call
+hamstack_js8call_autostart: false
+hamstack_js8call_x86_64_url: "https://github.com/JS8Call-improved/JS8Call-improved/releases/download/v{{ hamstack_js8call_version }}/JS8Call-v{{ hamstack_js8call_version }}-x86_64.AppImage"
+hamstack_js8call_aarch64_url: "https://github.com/JS8Call-improved/JS8Call-improved/releases/download/v{{ hamstack_js8call_version }}/JS8Call-v{{ hamstack_js8call_version }}-aarch64.AppImage"
+hamstack_js8call_extra_args: []

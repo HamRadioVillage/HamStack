@@ -1,0 +1,40 @@
+# Python / Ansible
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.retry
+.cache/
+.pytest_cache/
+
+# Ansible local state / facts
+fact_cache/
+*.vault-password
+.vault_pass
+vault-password*
+
+# Local inventories and secrets
+inventory/local/
+inventories/local/
+group_vars/*/vault.yml
+host_vars/*/vault.yml
+.env
+.env.*
+
+# SSH / keys
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs / temporary files
+*.log
+*.tmp
+*.swp
+*~

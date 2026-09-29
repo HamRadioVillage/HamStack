@@ -1,0 +1,4 @@
+https://{{ hamstack_meshtastic_dashboard_tls_host }} {
+    tls internal
+    reverse_proxy {{ hamstack_meshtastic_dashboard_container_name }}:8080
+}

@@ -1,0 +1,7 @@
+---
+# Intentionally contains no site-specific values.
+#
+# HamStack operator configuration belongs under:
+#   inventory/local/group_vars/all.yml
+#
+# Start by copying inventory/example to inventory/local.

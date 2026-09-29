@@ -1,0 +1,14 @@
+---
+# Shared QSSTV source-build defaults consumed by SSTV deployment roles.
+# This support role is invoked by sstv-rx and sstv-workstation; it is not a
+# standalone site capability.
+hamstack_qsstv_source_repo: https://github.com/HamRadioVillage/QSSTV.git
+hamstack_qsstv_source_ref: main
+hamstack_qsstv_source_dir: /opt/hamstack/qsstv-source
+hamstack_qsstv_build_dir: /var/cache/hamstack/qsstv-build
+hamstack_qsstv_install_prefix: /opt/hamstack/qsstv
+hamstack_qsstv_binary: /opt/hamstack/qsstv/bin/qsstv
+hamstack_qsstv_launcher: /usr/local/bin/qsstv
+hamstack_qsstv_build_jobs: 2
+hamstack_qsstv_update_source: true
+hamstack_qsstv_remove_distro_package: true

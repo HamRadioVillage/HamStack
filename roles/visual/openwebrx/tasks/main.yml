@@ -1,0 +1,64 @@
+---
+- name: Deploy OpenWebRX HTTPS LAN service
+  when: hamstack_openwebrx_enabled | bool
+  block:
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create OpenWebRX directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_openwebrx_data_dir }}"
+        - "{{ hamstack_openwebrx_data_dir }}/settings"
+        - "{{ hamstack_openwebrx_data_dir }}/caddy-data"
+        - "{{ hamstack_openwebrx_data_dir }}/caddy-config"
+
+    - name: Render OpenWebRX Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_openwebrx_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_openwebrx_caddy
+
+    - name: Create OpenWebRX private Docker network
+      community.docker.docker_network:
+        name: hamstack-openwebrx
+
+    - name: Run OpenWebRX application container
+      community.docker.docker_container:
+        name: "{{ hamstack_openwebrx_container_name }}"
+        image: "{{ hamstack_openwebrx_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_openwebrx_autostart | bool else 'no' }}"
+        networks:
+          - name: hamstack-openwebrx
+        devices: "{{ hamstack_openwebrx_device_mappings }}"
+        tmpfs:
+          - /tmp/openwebrx
+        volumes:
+          - "{{ hamstack_openwebrx_data_dir }}/settings:/var/lib/openwebrx"
+
+    - name: Run OpenWebRX HTTPS sidecar
+      community.docker.docker_container:
+        name: hamstack-openwebrx-caddy
+        image: "{{ hamstack_openwebrx_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_openwebrx_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_openwebrx_caddy.changed }}"
+        networks:
+          - name: hamstack-openwebrx
+        published_ports:
+          - "{{ hamstack_openwebrx_https_bind }}:{{ hamstack_openwebrx_https_port }}:443"
+        volumes:
+          - "{{ hamstack_openwebrx_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_openwebrx_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_openwebrx_data_dir }}/caddy-config:/config"

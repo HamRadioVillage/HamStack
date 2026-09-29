@@ -1,0 +1,58 @@
+---
+# APRS is a HamStack *profile* layered on an already-installed/configured
+# Graywolf instance. Graywolf owns radio/audio/PTT/channel configuration.
+hamstack_aprs_enabled: false
+hamstack_aprs_install: false
+hamstack_aprs_backend: graywolf
+hamstack_aprs_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_aprs_ssid: 0
+hamstack_aprs_graywolf_api_url: "{{ hamstack_graywolf_api_url | default('http://127.0.0.1:8080/api') }}"
+hamstack_aprs_graywolf_username: "{{ hamstack_graywolf_username | default('hamstack') }}"
+hamstack_aprs_graywolf_password: >-
+  {{
+    hamstack_graywolf_password
+    | default(
+        vault_hamstack_graywolf_password
+        | default(vault_hamstack_aprs_graywolf_password | default(''))
+      )
+  }}
+hamstack_aprs_graywolf_manage_first_user: true
+hamstack_aprs_graywolf_channel_id: null
+hamstack_aprs_simulation_mode: true
+
+hamstack_aprs_radio: ''
+hamstack_aprs_interface: ''
+hamstack_aprs_frequency_mhz: null
+hamstack_aprs_path:
+  - WIDE1-1
+
+# Position beaconing is reserved in the schema, but automated beacon CRUD is
+# deferred until we have tested identity matching against a live Graywolf API.
+hamstack_aprs_beacon_enabled: false
+hamstack_aprs_beacon_interval_seconds: 1800
+hamstack_aprs_beacon_comment: ''
+hamstack_aprs_beacon_send_path: rf
+hamstack_aprs_beacon_use_gps: false
+hamstack_aprs_beacon_latitude: "{{ hamstack_latitude | default(none) }}"
+hamstack_aprs_beacon_longitude: "{{ hamstack_longitude | default(none) }}"
+hamstack_aprs_beacon_symbol_table: '/'
+hamstack_aprs_beacon_symbol: '-'
+
+# Conservative conference-demo defaults: no Internet gating and no RF relay
+# unless the operator explicitly turns those features on.
+hamstack_aprs_igate_enabled: false
+hamstack_aprs_igate_server: rotate.aprs2.net
+hamstack_aprs_igate_port: 14580
+hamstack_aprs_igate_server_filter: ''
+hamstack_aprs_igate_rf_to_is: true
+hamstack_aprs_igate_is_to_rf: false
+hamstack_aprs_igate_tx_channel: null
+hamstack_aprs_igate_is_tx_via: ''
+
+hamstack_aprs_digipeater_enabled: false
+hamstack_aprs_digipeater_callsign: ''
+hamstack_aprs_digipeater_dedupe_window_seconds: 30
+hamstack_aprs_digipeater_rules: []
+
+hamstack_aprs_autostart: true
+hamstack_aprs_extra_settings: {}

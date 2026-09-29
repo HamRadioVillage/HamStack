@@ -1,0 +1,37 @@
+---
+- name: Deploy HamStack minimal HTTP netboot service
+  when: hamstack_netboot_enabled | bool
+  block:
+    - name: Install HamStack container runtime for netboot
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create netboot content directory
+      ansible.builtin.file:
+        path: "{{ hamstack_netboot_data_dir }}/www"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Render HamStack iPXE menu
+      ansible.builtin.template:
+        src: boot.ipxe.j2
+        dest: "{{ hamstack_netboot_data_dir }}/www/boot.ipxe"
+        owner: root
+        group: root
+        mode: '0644'
+      register: _hamstack_netboot_menu
+
+    - name: Run HamStack netboot HTTP container
+      community.docker.docker_container:
+        name: "{{ hamstack_netboot_container_name }}"
+        image: "{{ hamstack_netboot_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_netboot_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_netboot_menu.changed }}"
+        published_ports:
+          - "{{ hamstack_netboot_bind_address }}:{{ hamstack_netboot_http_port }}:80/tcp"
+        volumes:
+          - "{{ hamstack_netboot_data_dir }}/www:/usr/share/nginx/html:ro"

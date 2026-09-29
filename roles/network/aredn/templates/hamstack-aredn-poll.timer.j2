@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic HamStack AREDN status polling
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec={{ hamstack_aredn_poll_interval }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

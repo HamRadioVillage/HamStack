@@ -1,0 +1,10 @@
+---
+hamstack_blur_deck_enabled: false
+hamstack_blur_deck_media_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/blur-deck' }}"
+hamstack_blur_deck_media_filename: blurdeck.mp4
+hamstack_blur_deck_media_source: ''
+hamstack_blur_deck_dlna_friendly_name: HamStack Blur Deck
+hamstack_blur_deck_network_interfaces: []
+hamstack_blur_deck_inotify: true
+hamstack_blur_deck_autostart: true
+hamstack_blur_deck_extra_config: {}

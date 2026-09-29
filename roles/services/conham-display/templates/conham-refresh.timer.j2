@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically refresh local CONHAM mirror
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ hamstack_conham_refresh_minutes }}min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

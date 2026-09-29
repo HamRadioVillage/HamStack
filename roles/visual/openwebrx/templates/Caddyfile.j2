@@ -1,0 +1,4 @@
+https://{{ hamstack_openwebrx_tls_host }} {
+    tls internal
+    reverse_proxy {{ hamstack_openwebrx_container_name }}:8073
+}

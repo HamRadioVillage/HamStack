@@ -1,0 +1,41 @@
+---
+# Public configuration defaults for the graywolf HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_graywolf_enabled: false
+hamstack_graywolf_install: true
+hamstack_graywolf_version: latest
+hamstack_graywolf_package_url: ''
+hamstack_graywolf_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
+hamstack_graywolf_config_path: ''
+hamstack_graywolf_autostart: true
+
+# Graywolf owns its operational SQLite database. When API management is enabled,
+# HamStack converges the reusable modem/TNC layer through Graywolf's supported
+# management API instead of editing the database directly.
+hamstack_graywolf_manage_api: false
+hamstack_graywolf_api_url: http://127.0.0.1:8080/api
+hamstack_graywolf_username: hamstack
+hamstack_graywolf_password: >-
+  {{
+    vault_hamstack_graywolf_password
+    | default(vault_hamstack_aprs_graywolf_password | default(''))
+  }}
+hamstack_graywolf_manage_first_user: true
+hamstack_graywolf_manage_station: true
+
+# Explicit Graywolf audio resources. Names are HamStack-stable identifiers used
+# by hamstack_graywolf_channels; device_path is the native Graywolf/ALSA path.
+hamstack_graywolf_audio_devices: []
+
+# Radio/modem channels. HamStack identifies channels by their Graywolf name and
+# resolves input_device/output_device against hamstack_graywolf_audio_devices.
+hamstack_graywolf_channels: []
+
+# Optional global AGWPE listener. Graywolf AGWPE is a singleton, not per-channel.
+hamstack_graywolf_agw:
+  enabled: false
+  listen_address: 127.0.0.1
+  port: 8000
+  callsigns: '{{ hamstack_graywolf_callsign }}'
+
+hamstack_graywolf_extra_settings: {}

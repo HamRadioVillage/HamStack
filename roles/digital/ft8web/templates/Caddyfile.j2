@@ -1,0 +1,4 @@
+{% for name in _hamstack_ft8web_tls_names %}https://{{ name }}{% if not loop.last %}, {% endif %}{% endfor %} {
+    tls internal
+    reverse_proxy hamstack-ft8web:80
+}

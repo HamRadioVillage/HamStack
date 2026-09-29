@@ -1,0 +1,66 @@
+---
+- name: Configure 44Net Connect WireGuard tunnel
+  when: hamstack_44connect_enabled | bool
+  block:
+    - name: Verify 44Net Connect platform and mechanism
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+          - hamstack_44connect_mechanism == "wireguard"
+          - hamstack_44connect_address | length > 0
+          - hamstack_44connect_private_key | length > 0
+          - hamstack_44connect_peer_public_key | length > 0
+          - hamstack_44connect_peer_endpoint | length > 0
+        fail_msg: >-
+          44Connect requires a 44Net Connect WireGuard address, private key,
+          peer public key, and endpoint. Request/download the tunnel from
+          44Net Connect first, then map those values into local inventory/Vault.
+
+    - name: Select effective 44Net WireGuard routes
+      ansible.builtin.set_fact:
+        _hamstack_44connect_effective_allowed_ips: >-
+          {{
+            hamstack_44connect_allowed_ips
+            if hamstack_44connect_split_tunnel | bool
+            else hamstack_44connect_full_tunnel_allowed_ips
+          }}
+
+    - name: Install WireGuard tools
+      ansible.builtin.apt:
+        name: "{{ ['wireguard-tools'] + (['resolvconf'] if hamstack_44connect_dns_servers | length > 0 else []) }}"
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+    - name: Create WireGuard configuration directory
+      ansible.builtin.file:
+        path: /etc/wireguard
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Render 44Net Connect WireGuard configuration
+      ansible.builtin.template:
+        src: wireguard.conf.j2
+        dest: "/etc/wireguard/{{ hamstack_44connect_interface_name }}.conf"
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify: Restart 44Net Connect tunnel
+
+    - name: Enable and start 44Net Connect tunnel
+      ansible.builtin.systemd:
+        name: "wg-quick@{{ hamstack_44connect_interface_name }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+      when: hamstack_44connect_autostart | bool
+
+    - name: Disable 44Net Connect tunnel autostart when requested
+      ansible.builtin.systemd:
+        name: "wg-quick@{{ hamstack_44connect_interface_name }}"
+        enabled: false
+        daemon_reload: true
+      when: not (hamstack_44connect_autostart | bool)

@@ -1,0 +1,137 @@
+---
+- name: Configure MikroTik RouterOS network device
+  when: hamstack_routeros_enabled | bool
+  block:
+    - name: Validate RouterOS API credentials
+      ansible.builtin.assert:
+        that:
+          - ansible_host | default('') | length > 0
+          - hamstack_routeros_api_username | length > 0
+          - hamstack_routeros_api_password | length > 0
+        fail_msg: >-
+          RouterOS management uses the native API. Configure
+          ansible_host/ansible_user and a Vault-backed ansible_password or
+          vault_hamstack_routeros_password, and enable api-ssl on the router.
+
+    - name: Configure RouterOS identity
+      community.routeros.api_modify:
+        hostname: "{{ ansible_host }}"
+        username: "{{ hamstack_routeros_api_username }}"
+        password: "{{ hamstack_routeros_api_password }}"
+        port: "{{ hamstack_routeros_api_port }}"
+        tls: "{{ hamstack_routeros_api_tls }}"
+        validate_certs: "{{ hamstack_routeros_api_validate_certs }}"
+        path: system identity
+        data:
+          - name: "{{ hamstack_network_hostname }}"
+      when: hamstack_network_hostname | length > 0
+      delegate_to: localhost
+      no_log: true
+
+    - name: Initialize RouterOS translated address and route data
+      ansible.builtin.set_fact:
+        _hamstack_routeros_addresses: []
+        _hamstack_routeros_routes: []
+
+    - name: Translate HamStack LANs to RouterOS IP-address entries
+      ansible.builtin.set_fact:
+        _hamstack_routeros_addresses: >-
+          {{
+            _hamstack_routeros_addresses + [
+              {
+                'address': item.address,
+                'interface': (item.interface | default(item.device | default('bridge'))),
+                'comment': (item.comment | default('hamstack:' ~ (item.name | default('address')))),
+                'disabled': false
+              }
+            ]
+          }}
+      loop: "{{ hamstack_network_lans }}"
+      when: item.address is defined
+      no_log: true
+
+    - name: Translate HamStack routes to RouterOS route entries
+      ansible.builtin.set_fact:
+        _hamstack_routeros_routes: >-
+          {{
+            _hamstack_routeros_routes + [
+              {
+                'dst-address': (item['dst-address'] | default(item.target | default(''))),
+                'gateway': item.gateway,
+                'comment': (item.comment | default('hamstack:' ~ (item.name | default('route')))),
+                'disabled': false
+              }
+            ]
+          }}
+      loop: "{{ hamstack_network_routes }}"
+      when:
+        - item.gateway is defined
+        - (item['dst-address'] | default(item.target | default(''))) | length > 0
+      no_log: true
+
+    - name: Configure RouterOS managed IP addresses
+      community.routeros.api_modify:
+        hostname: "{{ ansible_host }}"
+        username: "{{ hamstack_routeros_api_username }}"
+        password: "{{ hamstack_routeros_api_password }}"
+        port: "{{ hamstack_routeros_api_port }}"
+        tls: "{{ hamstack_routeros_api_tls }}"
+        validate_certs: "{{ hamstack_routeros_api_validate_certs }}"
+        path: ip address
+        data: "{{ _hamstack_routeros_addresses }}"
+        restrict:
+          - field: comment
+            regex: '^hamstack:'
+        handle_absent_entries: remove
+      delegate_to: localhost
+      no_log: true
+
+    - name: Configure RouterOS managed static routes
+      community.routeros.api_modify:
+        hostname: "{{ ansible_host }}"
+        username: "{{ hamstack_routeros_api_username }}"
+        password: "{{ hamstack_routeros_api_password }}"
+        port: "{{ hamstack_routeros_api_port }}"
+        tls: "{{ hamstack_routeros_api_tls }}"
+        validate_certs: "{{ hamstack_routeros_api_validate_certs }}"
+        path: ip route
+        data: "{{ _hamstack_routeros_routes }}"
+        restrict:
+          - field: comment
+            regex: '^hamstack:'
+        handle_absent_entries: remove
+      delegate_to: localhost
+      no_log: true
+
+    - name: Configure RouterOS DNS resolver settings
+      community.routeros.api_modify:
+        hostname: "{{ ansible_host }}"
+        username: "{{ hamstack_routeros_api_username }}"
+        password: "{{ hamstack_routeros_api_password }}"
+        port: "{{ hamstack_routeros_api_port }}"
+        tls: "{{ hamstack_routeros_api_tls }}"
+        validate_certs: "{{ hamstack_routeros_api_validate_certs }}"
+        path: ip dns
+        data:
+          - servers: "{{ hamstack_network_dns_servers | join(',') }}"
+      delegate_to: localhost
+      no_log: true
+      when: hamstack_network_dns_servers | length > 0
+
+    - name: Apply operator-supplied RouterOS native API paths
+      community.routeros.api_modify:
+        hostname: "{{ ansible_host }}"
+        username: "{{ hamstack_routeros_api_username }}"
+        password: "{{ hamstack_routeros_api_password }}"
+        port: "{{ hamstack_routeros_api_port }}"
+        tls: "{{ hamstack_routeros_api_tls }}"
+        validate_certs: "{{ hamstack_routeros_api_validate_certs }}"
+        path: "{{ item.path }}"
+        data: "{{ item.data }}"
+        handle_absent_entries: "{{ item.handle_absent_entries | default('ignore') }}"
+        restrict: "{{ item.restrict | default(omit) }}"
+      loop: "{{ hamstack_routeros_native_paths }}"
+      loop_control:
+        label: "{{ item.path }}"
+      delegate_to: localhost
+      no_log: true

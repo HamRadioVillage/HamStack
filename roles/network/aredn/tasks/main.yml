@@ -1,0 +1,79 @@
+---
+- name: Configure read-only AREDN monitoring integration
+  when: hamstack_aredn_enabled | bool
+  block:
+    - name: Validate AREDN monitoring inputs
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_aredn_nodes | length > 0
+          - (hamstack_aredn_nodes | selectattr('name', 'defined') | list | length) == (hamstack_aredn_nodes | length)
+        fail_msg: >-
+          AREDN integration runs from a Debian-family HamStack node and needs at
+          least one named AREDN node with either host or url information.
+
+    - name: Validate individual AREDN node definitions
+      ansible.builtin.assert:
+        that:
+          - item.name is match('^[A-Za-z0-9._-]+$')
+          - (item.host is defined and item.host | length > 0) or
+            (item.url is defined and item.url | length > 0)
+        fail_msg: >-
+          Each AREDN node needs a filesystem-safe name and either host or url.
+      loop: "{{ hamstack_aredn_nodes }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Install AREDN monitoring dependencies
+      ansible.builtin.apt:
+        name:
+          - curl
+          - jq
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+    - name: Create AREDN status cache
+      ansible.builtin.file:
+        path: "{{ hamstack_aredn_cache_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install AREDN polling script
+      ansible.builtin.template:
+        src: hamstack-aredn-poll.sh.j2
+        dest: /usr/local/bin/hamstack-aredn-poll
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install AREDN polling service
+      ansible.builtin.template:
+        src: hamstack-aredn-poll.service.j2
+        dest: /etc/systemd/system/hamstack-aredn-poll.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install AREDN polling timer
+      ansible.builtin.template:
+        src: hamstack-aredn-poll.timer.j2
+        dest: /etc/systemd/system/hamstack-aredn-poll.timer
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Poll AREDN nodes once during convergence
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hamstack-aredn-poll
+      changed_when: false
+      failed_when: false
+
+    - name: Set AREDN polling timer state
+      ansible.builtin.systemd:
+        name: hamstack-aredn-poll.timer
+        enabled: "{{ hamstack_aredn_poll_enabled | bool }}"
+        state: "{{ 'started' if hamstack_aredn_poll_enabled | bool else 'stopped' }}"
+        daemon_reload: true

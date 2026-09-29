@@ -1,0 +1,42 @@
+---
+hamstack_winlink_enabled: false
+hamstack_winlink_version: 1.0.0
+hamstack_winlink_user: hamstack-winlink
+hamstack_winlink_group: hamstack-winlink
+hamstack_winlink_manage_user: true
+hamstack_winlink_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_winlink_locator: "{{ hamstack_grid_locator | default('') }}"
+hamstack_winlink_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/winlink' }}"
+hamstack_winlink_http_bind: 127.0.0.1
+hamstack_winlink_http_port: 8081
+hamstack_winlink_service_enabled: true
+hamstack_winlink_gatus_enabled: false
+hamstack_winlink_transports:
+  - telnet
+hamstack_winlink_listen: []
+hamstack_winlink_service_codes:
+  - PUBLIC
+hamstack_winlink_connect_aliases:
+  telnet: 'telnet://{mycall}:CMSTelnet@cms.winlink.org:8772/wl2k'
+hamstack_winlink_motd:
+  - HamStack Pat Winlink client
+hamstack_winlink_hamlib_rigs: {}
+hamstack_winlink_ax25_engine: linux
+hamstack_winlink_ax25_port: wl2k
+hamstack_winlink_agwpe_addr: localhost:8000
+hamstack_winlink_agwpe_radio_port: 0
+hamstack_winlink_serial_tnc_path: /dev/ttyUSB0
+hamstack_winlink_serial_tnc_baud: 9600
+hamstack_winlink_serial_tnc_hbaud: 1200
+hamstack_winlink_serial_tnc_type: kenwood
+hamstack_winlink_ardop_addr: localhost:8515
+hamstack_winlink_ardop_rig: ''
+hamstack_winlink_ardop_ptt_control: false
+hamstack_winlink_varahf_addr: localhost:8300
+hamstack_winlink_varahf_bandwidth: 2300
+hamstack_winlink_varafm_addr: localhost:8300
+hamstack_winlink_gpsd_addr: localhost:2947
+hamstack_winlink_gpsd_enable_http: false
+hamstack_winlink_gpsd_allow_forms: false
+hamstack_winlink_version_reporting_disabled: false
+hamstack_winlink_extra_config: {}

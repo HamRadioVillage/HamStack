@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+DECODER_ARGS=""
+{% for decoder in hamstack_multimon_ng_decoders %}
+DECODER_ARGS="$DECODER_ARGS -a {{ decoder }}"
+{% endfor %}
+
+{% if hamstack_multimon_ng_source_command | length > 0 %}
+{{ hamstack_multimon_ng_source_command }} | exec multimon-ng $DECODER_ARGS -t {{ hamstack_multimon_ng_input_type | quote }}{% for arg in hamstack_multimon_ng_extra_args %} {{ arg | quote }}{% endfor %} -
+{% else %}
+exec multimon-ng $DECODER_ARGS -t {{ hamstack_multimon_ng_input_type | quote }}{% for arg in hamstack_multimon_ng_extra_args %} {{ arg | quote }}{% endfor %} -
+{% endif %}

@@ -1,0 +1,73 @@
+---
+- name: Manage WSJT-X
+  when: hamstack_wsjtx_enabled | bool
+  block:
+    - name: Verify WSJT-X is running on a supported package platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: >-
+          The WSJT-X role supports Debian-family
+          systems only.
+
+    - name: Install WSJT-X
+      ansible.builtin.apt:
+        name: wsjtx
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_wsjtx_install | bool
+
+    - name: Validate operator account for WSJT-X autostart
+      ansible.builtin.assert:
+        that:
+          - hamstack_operator_user | default('') | length > 0
+        fail_msg: >-
+          Set hamstack_operator_user in this host's host_vars before enabling
+          WSJT-X autostart.
+      when: hamstack_wsjtx_autostart | bool
+
+    - name: Read WSJT-X operator account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_operator_user }}"
+      when: hamstack_operator_user | default('') | length > 0
+
+    - name: Remember WSJT-X operator home directory
+      ansible.builtin.set_fact:
+        _hamstack_wsjtx_operator_home: >-
+          {{ ansible_facts.getent_passwd[hamstack_operator_user][4] }}
+      when: hamstack_operator_user | default('') | length > 0
+
+    - name: Add WSJT-X operator to radio/audio groups
+      ansible.builtin.user:
+        name: "{{ hamstack_operator_user }}"
+        groups:
+          - audio
+          - dialout
+        append: true
+      when: hamstack_operator_user | default('') | length > 0
+
+    - name: Create WSJT-X XDG autostart directory
+      ansible.builtin.file:
+        path: "{{ _hamstack_wsjtx_operator_home }}/.config/autostart"
+        state: directory
+        owner: "{{ hamstack_operator_user }}"
+        mode: "0755"
+      when: hamstack_wsjtx_autostart | bool
+
+    - name: Configure WSJT-X desktop autostart
+      ansible.builtin.template:
+        src: "wsjtx.desktop.j2"
+        dest: "{{ _hamstack_wsjtx_operator_home }}/.config/autostart/hamstack-wsjtx.desktop"
+        owner: "{{ hamstack_operator_user }}"
+        mode: "0644"
+      when: hamstack_wsjtx_autostart | bool
+
+    - name: Remove WSJT-X desktop autostart when disabled
+      ansible.builtin.file:
+        path: "{{ _hamstack_wsjtx_operator_home | default('/nonexistent') }}/.config/autostart/hamstack-wsjtx.desktop"
+        state: absent
+      when:
+        - not (hamstack_wsjtx_autostart | bool)
+        - hamstack_operator_user | default('') | length > 0

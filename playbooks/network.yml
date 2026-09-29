@@ -1,0 +1,39 @@
+---
+- name: Apply HamStack network-device configuration
+  hosts: network_devices
+  gather_facts: false
+
+  pre_tasks:
+    - name: Check for optional HamStack Vault file
+      ansible.builtin.stat:
+        path: "{{ inventory_dir }}/group_vars/all/vault.yml"
+      delegate_to: localhost
+      register: _hamstack_network_vault_file
+
+    - name: Load optional HamStack Vault variables
+      ansible.builtin.include_vars:
+        file: "{{ inventory_dir }}/group_vars/all/vault.yml"
+      no_log: true
+      when: _hamstack_network_vault_file.stat.exists
+
+  tasks:
+    - name: Validate supported HamStack network platform
+      ansible.builtin.assert:
+        that:
+          - hamstack_network_platform | default('') in ['openwrt', 'routeros']
+        fail_msg: >-
+          Set hamstack_network_platform to openwrt or routeros for each device.
+
+    - name: Apply OpenWrt-family network backend
+      ansible.builtin.include_role:
+        name: network/openwrt
+      vars:
+        hamstack_openwrt_enabled: true
+      when: hamstack_network_platform == 'openwrt'
+
+    - name: Apply RouterOS network backend
+      ansible.builtin.include_role:
+        name: network/routeros
+      vars:
+        hamstack_routeros_enabled: true
+      when: hamstack_network_platform == 'routeros'

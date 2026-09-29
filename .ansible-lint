@@ -1,0 +1,12 @@
+---
+profile: basic
+
+exclude_paths:
+  - .cache/
+  - .venv/
+
+# HamStack intentionally groups roles under capability directories.
+# ansible-lint's role-name[path] rule rejects nested role paths, so keep it visible
+# as a warning without making the basic profile unusable.
+warn_list:
+  - role-name

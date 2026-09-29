@@ -1,0 +1,10 @@
+---
+hamstack_unipager_enabled: false
+hamstack_unipager_install: true
+hamstack_unipager_repo_url: https://hampager.de/debian
+hamstack_unipager_repo_key_url: https://hampager.de/debian/rwth-afu.key
+hamstack_unipager_repo_suite: unipager
+hamstack_unipager_autostart: false
+hamstack_unipager_service: unipager
+hamstack_unipager_web_port: 8073
+hamstack_unipager_websocket_port: 8055

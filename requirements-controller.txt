@@ -1,0 +1,3 @@
+ansible-core
+PyYAML>=6.0
+librouteros>=3.2.1

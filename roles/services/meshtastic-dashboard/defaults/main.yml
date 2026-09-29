@@ -1,0 +1,10 @@
+---
+hamstack_meshtastic_dashboard_enabled: false
+hamstack_meshtastic_dashboard_image: ghcr.io/meshtastic/web:latest
+hamstack_meshtastic_dashboard_container_name: hamstack-meshtastic-web
+hamstack_meshtastic_dashboard_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/meshtastic-web' }}"
+hamstack_meshtastic_dashboard_https_bind: 0.0.0.0
+hamstack_meshtastic_dashboard_https_port: 8451
+hamstack_meshtastic_dashboard_tls_host: "{{ inventory_hostname }}"
+hamstack_meshtastic_dashboard_caddy_image: caddy:2-alpine
+hamstack_meshtastic_dashboard_autostart: true

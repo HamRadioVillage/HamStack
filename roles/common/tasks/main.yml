@@ -1,0 +1,45 @@
+---
+- name: Verify Debian-family package management support
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == "Debian"
+    fail_msg: >-
+      The HamStack common role currently implements package management for
+      Debian-family systems only.
+  when: hamstack_common_manage_packages | bool
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: "{{ hamstack_common_apt_cache_valid_time }}"
+  when: hamstack_common_manage_packages | bool
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name: "{{ hamstack_common_packages + hamstack_common_extra_packages }}"
+    state: present
+  when: hamstack_common_manage_packages | bool
+
+- name: Create HamStack directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ hamstack_config_dir }}"
+    - "{{ hamstack_data_dir }}"
+    - "{{ hamstack_cache_dir }}"
+    - "{{ hamstack_log_dir }}"
+  when: hamstack_common_manage_directories | bool
+
+- name: Set system hostname
+  ansible.builtin.hostname:
+    name: "{{ hamstack_hostname }}"
+  when: hamstack_manage_hostname | bool
+
+- name: Set system timezone
+  community.general.timezone:
+    name: "{{ hamstack_timezone }}"
+  when: hamstack_manage_timezone | bool

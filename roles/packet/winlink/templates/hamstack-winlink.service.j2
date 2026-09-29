@@ -1,0 +1,21 @@
+[Unit]
+Description=HamStack Pat Winlink web client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ hamstack_winlink_user }}
+Group={{ hamstack_winlink_group }}
+WorkingDirectory={{ hamstack_winlink_data_dir }}
+ExecStart=/usr/bin/pat --config {{ hamstack_winlink_data_dir }}/config.json --mbox {{ hamstack_winlink_data_dir }}/mailbox http
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ hamstack_winlink_data_dir }}
+
+[Install]
+WantedBy=multi-user.target

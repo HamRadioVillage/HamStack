@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+BASE={{ hamstack_ft8web_data_dir | quote }}
+SOURCE={{ hamstack_ft8web_source_url | quote }}
+STAGE="$BASE/stage"
+CURRENT="$BASE/current"
+NEW="$BASE/current.new"
+
+rm -rf "$STAGE" "$NEW"
+mkdir -p "$STAGE"
+
+wget --quiet \
+  --mirror \
+  --page-requisites \
+  --convert-links \
+  --adjust-extension \
+  --no-parent \
+  --directory-prefix "$STAGE" \
+  "$SOURCE"
+
+HOST=$(printf '%s' "$SOURCE" | sed -E 's#^[a-zA-Z]+://([^/]+)/?.*$#\1#')
+SRC="$STAGE/$HOST"
+[ -d "$SRC" ] || { echo "FT8Web mirror did not produce $SRC" >&2; exit 1; }
+
+mv "$SRC" "$NEW"
+rm -rf "$CURRENT.old"
+if [ -d "$CURRENT" ]; then mv "$CURRENT" "$CURRENT.old"; fi
+mv "$NEW" "$CURRENT"
+rm -rf "$CURRENT.old" "$STAGE"

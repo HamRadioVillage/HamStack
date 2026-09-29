@@ -1,0 +1,101 @@
+set -eu
+command -v uci >/dev/null
+
+{% if hamstack_network_hostname | length > 0 %}
+uci set system.@system[0].hostname={{ hamstack_network_hostname | quote }}
+{% endif %}
+
+{% for lan in hamstack_network_lans %}
+# LAN {{ lan.name }}
+uci -q delete network.{{ lan.name }}
+uci set network.{{ lan.name }}=interface
+uci set network.{{ lan.name }}.proto=static
+{% if lan.device is defined and lan.device %}
+uci set network.{{ lan.name }}.device={{ lan.device | quote }}
+{% endif %}
+{% if lan.address is defined and lan.address %}
+uci set network.{{ lan.name }}.ipaddr={{ lan.address | quote }}
+{% endif %}
+{% if lan.gateway is defined and lan.gateway %}
+uci set network.{{ lan.name }}.gateway={{ lan.gateway | quote }}
+{% endif %}
+{% if lan.dhcp is defined %}
+uci -q delete dhcp.{{ lan.name }}
+uci set dhcp.{{ lan.name }}=dhcp
+uci set dhcp.{{ lan.name }}.interface={{ lan.name | quote }}
+uci set dhcp.{{ lan.name }}.ignore={{ '0' if lan.dhcp.enabled | default(true) else '1' }}
+uci set dhcp.{{ lan.name }}.start={{ lan.dhcp.start | default(100) | quote }}
+uci set dhcp.{{ lan.name }}.limit={{ lan.dhcp.limit | default(100) | quote }}
+uci set dhcp.{{ lan.name }}.leasetime={{ lan.dhcp.leasetime | default('12h') | quote }}
+{% endif %}
+{% endfor %}
+
+{% for wifi in hamstack_network_wifi %}
+uci -q delete wireless.{{ wifi.name }}
+uci set wireless.{{ wifi.name }}=wifi-iface
+uci set wireless.{{ wifi.name }}.device={{ wifi.radio | quote }}
+uci set wireless.{{ wifi.name }}.mode=ap
+uci set wireless.{{ wifi.name }}.network={{ wifi.network | quote }}
+uci set wireless.{{ wifi.name }}.ssid={{ wifi.ssid | quote }}
+uci set wireless.{{ wifi.name }}.encryption={{ wifi.encryption | default('psk2') | quote }}
+{% if wifi.key is defined and wifi.key %}
+uci set wireless.{{ wifi.name }}.key={{ wifi.key | quote }}
+{% endif %}
+{% if wifi.country is defined and wifi.country %}
+uci set wireless.{{ wifi.radio }}.country={{ wifi.country | quote }}
+{% endif %}
+uci set wireless.{{ wifi.radio }}.disabled=0
+{% endfor %}
+
+{% for route in hamstack_network_routes %}
+uci -q delete network.{{ route.name }}
+uci set network.{{ route.name }}=route
+uci set network.{{ route.name }}.interface={{ route.interface | quote }}
+uci set network.{{ route.name }}.target={{ route.target | quote }}
+{% if route.gateway is defined and route.gateway %}
+uci set network.{{ route.name }}.gateway={{ route.gateway | quote }}
+{% endif %}
+{% endfor %}
+
+{% for zone in hamstack_network_firewall_zones %}
+uci -q delete firewall.{{ zone.name }}
+uci set firewall.{{ zone.name }}=zone
+uci set firewall.{{ zone.name }}.name={{ zone.name | quote }}
+uci set firewall.{{ zone.name }}.input={{ zone.input | default('REJECT') | quote }}
+uci set firewall.{{ zone.name }}.output={{ zone.output | default('ACCEPT') | quote }}
+uci set firewall.{{ zone.name }}.forward={{ zone.forward | default('REJECT') | quote }}
+{% if zone.masq | default(false) %}uci set firewall.{{ zone.name }}.masq=1{% endif %}
+{% for net in zone.networks | default([]) %}
+uci add_list firewall.{{ zone.name }}.network={{ net | quote }}
+{% endfor %}
+{% for dest in zone.forward_to | default([]) %}
+uci -q delete firewall.hamstack_{{ zone.name }}_to_{{ dest }}
+uci set firewall.hamstack_{{ zone.name }}_to_{{ dest }}=forwarding
+uci set firewall.hamstack_{{ zone.name }}_to_{{ dest }}.src={{ zone.name | quote }}
+uci set firewall.hamstack_{{ zone.name }}_to_{{ dest }}.dest={{ dest | quote }}
+{% endfor %}
+{% endfor %}
+
+{% if hamstack_network_dns_servers | length > 0 %}
+uci -q delete dhcp.@dnsmasq[0].server
+{% for server in hamstack_network_dns_servers %}
+uci add_list dhcp.@dnsmasq[0].server={{ server | quote }}
+{% endfor %}
+{% endif %}
+
+{% for command in hamstack_network_extra_settings.get('uci_commands', []) %}
+{{ command }}
+{% endfor %}
+
+uci commit system
+uci commit network
+uci commit dhcp
+uci commit wireless
+uci commit firewall
+{% if hamstack_network_apply_changes %}
+/etc/init.d/system reload 2>/dev/null || true
+/etc/init.d/dnsmasq reload 2>/dev/null || true
+/etc/init.d/firewall reload 2>/dev/null || true
+/etc/init.d/network reload
+wifi reload 2>/dev/null || true
+{% endif %}

@@ -1,0 +1,10 @@
+---
+- name: Reload systemd for HamStack Winlink
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart HamStack Winlink
+  ansible.builtin.systemd:
+    name: hamstack-winlink
+    state: restarted
+  when: hamstack_winlink_service_enabled | bool

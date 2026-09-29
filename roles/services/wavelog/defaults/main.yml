@@ -1,0 +1,14 @@
+---
+hamstack_wavelog_enabled: false
+hamstack_wavelog_image: ghcr.io/wavelog/wavelog:latest
+hamstack_wavelog_db_image: mariadb:11.8
+hamstack_wavelog_caddy_image: caddy:2-alpine
+hamstack_wavelog_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/wavelog' }}"
+hamstack_wavelog_https_bind: 0.0.0.0
+hamstack_wavelog_https_port: 8453
+hamstack_wavelog_tls_host: "{{ inventory_hostname }}"
+hamstack_wavelog_database_name: wavelog
+hamstack_wavelog_database_user: wavelog
+hamstack_wavelog_disable_cron: false
+hamstack_wavelog_environment: {}
+hamstack_wavelog_autostart: true

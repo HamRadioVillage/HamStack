@@ -1,0 +1,150 @@
+---
+- name: Validate HRV QSSTV source-build inputs
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - hamstack_qsstv_source_repo | length > 0
+      - hamstack_qsstv_source_ref | length > 0
+      - (hamstack_qsstv_build_jobs | int) > 0
+    fail_msg: >-
+      The HamStack QSSTV runtime currently builds the HamRadioVillage QSSTV
+      source tree on Debian-family systems. Configure a non-empty source repo
+      and ref and a positive build job count.
+
+- name: Install HRV QSSTV build dependencies
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - g++
+      - git
+      - libasound2-dev
+      - libfftw3-dev
+      - libhamlib++-dev
+      - libopenjp2-7
+      - libopenjp2-7-dev
+      - libpulse-dev
+      - libqt5svg5-dev
+      - libv4l-dev
+      - pkg-config
+      - qt5-qmake
+      - qtbase5-dev
+      - qtbase5-dev-tools
+      - qtchooser
+    state: present
+    update_cache: true
+    cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+- name: Remove distro QSSTV package when using the HRV source build
+  ansible.builtin.apt:
+    name: qsstv
+    state: absent
+  when: hamstack_qsstv_remove_distro_package | bool
+
+- name: Create HRV QSSTV source, build, and install directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop:
+    - "{{ hamstack_qsstv_source_dir | dirname }}"
+    - "{{ hamstack_qsstv_build_dir }}"
+    - "{{ hamstack_qsstv_install_prefix }}/bin"
+    - /usr/local/share/applications
+    - /usr/local/share/icons/hicolor/128x128/apps
+
+- name: Check out HamRadioVillage QSSTV source
+  ansible.builtin.git:
+    repo: "{{ hamstack_qsstv_source_repo }}"
+    dest: "{{ hamstack_qsstv_source_dir }}"
+    version: "{{ hamstack_qsstv_source_ref }}"
+    update: "{{ hamstack_qsstv_update_source | bool }}"
+    force: false
+  register: _hamstack_qsstv_source
+
+- name: Check installed HRV QSSTV binary
+  ansible.builtin.stat:
+    path: "{{ hamstack_qsstv_binary }}"
+  register: _hamstack_qsstv_binary_stat
+
+- name: Check HRV QSSTV build Makefile
+  ansible.builtin.stat:
+    path: "{{ hamstack_qsstv_build_dir }}/Makefile"
+  register: _hamstack_qsstv_makefile_stat
+
+- name: Configure HRV QSSTV build with qmake
+  ansible.builtin.command:
+    argv:
+      - qmake
+      - "PREFIX={{ hamstack_qsstv_install_prefix }}"
+      - "{{ hamstack_qsstv_source_dir }}/src"
+    chdir: "{{ hamstack_qsstv_build_dir }}"
+  register: _hamstack_qsstv_qmake
+  changed_when: true
+  when: >-
+    _hamstack_qsstv_source.changed or
+    not _hamstack_qsstv_binary_stat.stat.exists or
+    not _hamstack_qsstv_makefile_stat.stat.exists
+
+- name: Build HRV QSSTV
+  ansible.builtin.command:
+    argv:
+      - make
+      - "-j{{ hamstack_qsstv_build_jobs | int }}"
+    chdir: "{{ hamstack_qsstv_build_dir }}"
+  register: _hamstack_qsstv_make
+  changed_when: true
+  when: >-
+    _hamstack_qsstv_source.changed or
+    not _hamstack_qsstv_binary_stat.stat.exists or
+    (_hamstack_qsstv_qmake is defined and _hamstack_qsstv_qmake.changed)
+
+- name: Install HRV QSSTV binary
+  ansible.builtin.copy:
+    src: "{{ hamstack_qsstv_build_dir }}/qsstv"
+    dest: "{{ hamstack_qsstv_binary }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0755'
+  when: >-
+    _hamstack_qsstv_source.changed or
+    not _hamstack_qsstv_binary_stat.stat.exists or
+    (_hamstack_qsstv_make is defined and _hamstack_qsstv_make.changed)
+
+- name: Install HRV QSSTV desktop entry
+  ansible.builtin.copy:
+    src: "{{ hamstack_qsstv_source_dir }}/qsstv.desktop"
+    dest: /usr/local/share/applications/qsstv.desktop
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Install HRV QSSTV icon
+  ansible.builtin.copy:
+    src: "{{ hamstack_qsstv_source_dir }}/src/icons/qsstv.png"
+    dest: /usr/local/share/icons/hicolor/128x128/apps/qsstv.png
+    remote_src: true
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Expose HRV QSSTV on the system path
+  ansible.builtin.file:
+    src: "{{ hamstack_qsstv_binary }}"
+    dest: "{{ hamstack_qsstv_launcher }}"
+    state: link
+    force: true
+
+- name: Verify HRV QSSTV runtime libraries resolve
+  ansible.builtin.command:
+    argv:
+      - ldd
+      - "{{ hamstack_qsstv_binary }}"
+  register: _hamstack_qsstv_ldd
+  changed_when: false
+  failed_when: >-
+    _hamstack_qsstv_ldd.rc != 0 or
+    'not found' in _hamstack_qsstv_ldd.stdout

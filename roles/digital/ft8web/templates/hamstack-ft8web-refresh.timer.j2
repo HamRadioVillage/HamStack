@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodic HamStack FT8Web mirror refresh
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec={{ hamstack_ft8web_refresh_interval }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,19 @@
+---
+hamstack_gps_time_enabled: false
+hamstack_gps_time_device: ''
+hamstack_gps_time_gpsd_enabled: true
+hamstack_gps_time_time_sync_enabled: true
+hamstack_gps_time_time_sync_provider: chrony
+hamstack_gps_time_pps_enabled: false
+hamstack_gps_time_pps_device: ''
+hamstack_gps_time_refclock_mode: auto
+hamstack_gps_time_refid: GPS
+hamstack_gps_time_pps_refid: PPS
+hamstack_gps_time_nmea_refid: NMEA
+hamstack_gps_time_nmea_offset_seconds: 0.5
+hamstack_gps_time_nmea_delay_seconds: 0.1
+hamstack_gps_time_allow_networks: []
+hamstack_gps_time_makestep: true
+hamstack_gps_time_rtcsync: true
+hamstack_gps_time_expose_location: false
+hamstack_gps_time_extra_settings: {}

@@ -1,0 +1,135 @@
+---
+- name: Deploy local FT8Web capability
+  when: hamstack_ft8web_enabled | bool
+  block:
+    - name: Validate FT8Web platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+        fail_msg: FT8Web local mirroring supports Debian-family hosts.
+
+    - name: Install FT8Web mirror dependencies
+      ansible.builtin.apt:
+        name:
+          - wget
+          - ca-certificates
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+    - name: Install HamStack container runtime for FT8Web
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Select FT8Web TLS identities
+      ansible.builtin.set_fact:
+        _hamstack_ft8web_tls_names: >-
+          {{
+            (
+              [hamstack_ft8web_tls_host]
+              + hamstack_ft8web_tls_extra_names
+              + ([ansible_host] if (ansible_host is defined and ansible_host | string | length > 0) else [])
+            ) | reject('equalto', '') | unique | list
+          }}
+
+    - name: Create FT8Web data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - "{{ hamstack_ft8web_data_dir }}"
+        - "{{ hamstack_ft8web_data_dir }}/current"
+        - "{{ hamstack_ft8web_data_dir }}/nginx-config"
+        - "{{ hamstack_ft8web_data_dir }}/caddy-data"
+        - "{{ hamstack_ft8web_data_dir }}/caddy-config"
+
+    - name: Install transactional FT8Web mirror refresh script
+      ansible.builtin.template:
+        src: refresh-ft8web.sh.j2
+        dest: /usr/local/bin/hamstack-ft8web-refresh
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Seed local FT8Web mirror
+      ansible.builtin.command:
+        cmd: /usr/local/bin/hamstack-ft8web-refresh
+        creates: "{{ hamstack_ft8web_data_dir }}/current/index.html"
+
+    - name: Install FT8Web refresh systemd service
+      ansible.builtin.template:
+        src: hamstack-ft8web-refresh.service.j2
+        dest: /etc/systemd/system/hamstack-ft8web-refresh.service
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Install FT8Web refresh systemd timer
+      ansible.builtin.template:
+        src: hamstack-ft8web-refresh.timer.j2
+        dest: /etc/systemd/system/hamstack-ft8web-refresh.timer
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Enable or disable FT8Web refresh timer
+      ansible.builtin.systemd:
+        name: hamstack-ft8web-refresh.timer
+        enabled: "{{ hamstack_ft8web_refresh | bool }}"
+        state: "{{ 'started' if hamstack_ft8web_refresh | bool else 'stopped' }}"
+        daemon_reload: true
+
+    - name: Render FT8Web nginx configuration
+      ansible.builtin.template:
+        src: nginx-default.conf.j2
+        dest: "{{ hamstack_ft8web_data_dir }}/nginx-config/default.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      register: _hamstack_ft8web_nginx_config
+
+    - name: Render FT8Web Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_ft8web_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: '0644'
+      register: _hamstack_ft8web_caddy
+
+    - name: Create FT8Web Docker network
+      community.docker.docker_network:
+        name: hamstack-ft8web
+
+    - name: Run local FT8Web static server
+      community.docker.docker_container:
+        name: hamstack-ft8web
+        image: "{{ hamstack_ft8web_nginx_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_ft8web_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_ft8web_nginx_config.changed }}"
+        networks:
+          - name: hamstack-ft8web
+        volumes:
+          - "{{ hamstack_ft8web_data_dir }}:/srv/ft8web:ro"
+          - "{{ hamstack_ft8web_data_dir }}/nginx-config:/etc/nginx/conf.d:ro"
+
+    - name: Run FT8Web HTTPS sidecar
+      community.docker.docker_container:
+        name: hamstack-ft8web-caddy
+        image: "{{ hamstack_ft8web_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_ft8web_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_ft8web_caddy.changed }}"
+        networks:
+          - name: hamstack-ft8web
+        published_ports:
+          - "{{ hamstack_ft8web_https_bind }}:{{ hamstack_ft8web_https_port }}:443"
+        volumes:
+          - "{{ hamstack_ft8web_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_ft8web_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_ft8web_data_dir }}/caddy-config:/config"

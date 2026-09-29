@@ -1,0 +1,37 @@
+---
+# HamStack core fallback defaults.
+# Operators normally override site/host values in inventory/local/.
+hamstack_site_name: HamStack
+hamstack_event_name: ''
+hamstack_callsign: N0CALL
+hamstack_grid_locator: ''
+hamstack_latitude: null
+hamstack_longitude: null
+hamstack_country_code: US
+hamstack_timezone: Etc/UTC
+hamstack_locale: en_US.UTF-8
+hamstack_config_dir: /etc/hamstack
+hamstack_data_dir: /var/lib/hamstack
+hamstack_cache_dir: /var/cache/hamstack
+hamstack_log_dir: /var/log/hamstack
+hamstack_operator_user: ''
+hamstack_manage_hostname: false
+hamstack_hostname: '{{ inventory_hostname }}'
+hamstack_manage_timezone: true
+hamstack_manage_locale: false
+hamstack_devices: {}
+hamstack_radios: {}
+hamstack_common_manage_packages: true
+hamstack_common_packages:
+- curl
+- git
+- htop
+- jq
+- rsync
+- tmux
+- unzip
+- vim
+- wget
+hamstack_common_extra_packages: []
+hamstack_common_apt_cache_valid_time: 3600
+hamstack_common_manage_directories: true

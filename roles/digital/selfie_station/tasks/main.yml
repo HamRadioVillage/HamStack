@@ -1,0 +1,132 @@
+---
+- name: Manage Selfie Station
+  when: hamstack_selfie_station_enabled | bool
+  block:
+    - name: Verify Selfie Station platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == "Debian"
+        fail_msg: >-
+          The Selfie Station role supports Debian-family
+          Raspberry Pi systems.
+
+    - name: Verify Selfie Station service account exists
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_selfie_station_user }}"
+
+    - name: Add Selfie Station user to hardware groups
+      ansible.builtin.user:
+        name: "{{ hamstack_selfie_station_user }}"
+        groups:
+          - audio
+          - dialout
+          - video
+          - input
+        append: true
+
+    - name: Install Selfie Station system packages
+      ansible.builtin.apt:
+        name:
+          - alsa-utils
+          - fonts-dejavu-core
+          - python3-evdev
+          - python3-packaging
+          - python3-picamera2
+          - python3-pil
+          - python3-pip
+          - python3-serial
+          - python3-venv
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+    - name: Create Selfie Station install directory
+      ansible.builtin.file:
+        path: "{{ hamstack_selfie_station_install_dir }}"
+        state: directory
+        owner: "{{ hamstack_selfie_station_user }}"
+        mode: "0755"
+
+    - name: Create Selfie Station Python environment with system packages
+      ansible.builtin.command:
+        cmd: >-
+          python3 -m venv --system-site-packages
+          {{ hamstack_selfie_station_venv_dir }}
+        creates: "{{ hamstack_selfie_station_venv_dir }}/bin/python3"
+
+    - name: Install PySSTV in Selfie Station Python environment
+      ansible.builtin.pip:
+        name: pysstv
+        executable: "{{ hamstack_selfie_station_venv_dir }}/bin/pip"
+
+    - name: Create Selfie Station data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hamstack_selfie_station_user }}"
+        mode: "0755"
+      loop:
+        - "{{ hamstack_selfie_station_data_dir }}"
+        - "{{ hamstack_selfie_station_data_dir }}/photos"
+        - "{{ hamstack_selfie_station_data_dir }}/sstv"
+        - "{{ hamstack_selfie_station_data_dir }}/wav"
+
+    - name: Resolve configured Selfie Station AIOC
+      ansible.builtin.set_fact:
+        _hamstack_selfie_aioc: >-
+          {{
+            hamstack_devices.get(hamstack_selfie_station_interface, {})
+            if hamstack_selfie_station_interface | length > 0
+            else {}
+          }}
+        _hamstack_selfie_trigger: >-
+          {{
+            hamstack_devices.get(hamstack_selfie_station_trigger_device, {})
+            if hamstack_selfie_station_trigger_device | length > 0
+            else {}
+          }}
+
+    - name: Resolve Selfie Station hardware endpoints
+      ansible.builtin.set_fact:
+        _hamstack_selfie_aioc_serial: >-
+          {{ _hamstack_selfie_aioc.get('endpoints', {}).get('serial', '') }}
+        _hamstack_selfie_aioc_audio: >-
+          {{ _hamstack_selfie_aioc.get('endpoints', {}).get('audio_playback', '') }}
+        _hamstack_selfie_trigger_device: >-
+          {{
+            _hamstack_selfie_trigger.get('endpoints', {}).get('hid', '')
+            or hamstack_selfie_station_trigger_fallback_device
+          }}
+
+    - name: Deploy Selfie Station application
+      ansible.builtin.template:
+        src: selfie_station.py.j2
+        dest: "{{ hamstack_selfie_station_install_dir }}/selfie_station.py"
+        owner: "{{ hamstack_selfie_station_user }}"
+        mode: "0755"
+      notify: Restart selfie station
+
+    - name: Install Selfie Station systemd service
+      ansible.builtin.template:
+        src: selfie-station.service.j2
+        dest: /etc/systemd/system/hamstack-selfie-station.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart selfie station
+
+    - name: Enable and start Selfie Station
+      ansible.builtin.systemd:
+        name: hamstack-selfie-station
+        enabled: true
+        state: started
+        daemon_reload: true
+      when: hamstack_selfie_station_autostart | bool
+
+    - name: Disable Selfie Station autostart when requested
+      ansible.builtin.systemd:
+        name: hamstack-selfie-station
+        enabled: false
+        daemon_reload: true
+      when: not (hamstack_selfie_station_autostart | bool)

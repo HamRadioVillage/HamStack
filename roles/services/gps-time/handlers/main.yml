@@ -1,0 +1,14 @@
+---
+- name: Restart chrony for HamStack GPS time
+  ansible.builtin.systemd:
+    name: chrony
+    state: restarted
+    daemon_reload: true
+  listen: Restart HamStack GPS time
+
+- name: Restart gpsd for HamStack GPS time
+  ansible.builtin.systemd:
+    name: gpsd
+    state: restarted
+    daemon_reload: true
+  listen: Restart HamStack GPS time

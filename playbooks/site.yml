@@ -1,0 +1,95 @@
+---
+- name: Apply HamStack configuration
+  hosts: all
+  become: true
+
+  pre_tasks:
+    - name: Check for optional HamStack Vault file
+      ansible.builtin.stat:
+        path: "{{ inventory_dir }}/group_vars/all/vault.yml"
+      delegate_to: localhost
+      become: false
+      register: _hamstack_vault_file
+
+    - name: Load optional HamStack Vault variables
+      ansible.builtin.include_vars:
+        file: "{{ inventory_dir }}/group_vars/all/vault.yml"
+      no_log: true
+      when: _hamstack_vault_file.stat.exists
+
+  roles:
+    - role: common
+    - role: digital/fldigi
+      when: hamstack_fldigi_enabled | default(false) | bool
+    - role: digital/flrig
+      when: hamstack_flrig_enabled | default(false) | bool
+    - role: digital/wsjtx
+      when: hamstack_wsjtx_enabled | default(false) | bool
+    - role: digital/multimon-ng
+      when: hamstack_multimon_ng_enabled | default(false) | bool
+    - role: digital/unipager
+      when: hamstack_unipager_enabled | default(false) | bool
+    - role: digital/js8call
+      when: hamstack_js8call_enabled | default(false) | bool
+    - role: digital/ft8web
+      when: hamstack_ft8web_enabled | default(false) | bool
+    - role: desktop/hamstack-dev
+      when: hamstack_dev_enabled | default(false) | bool
+    - role: desktop/hamstack-controller
+      when: hamstack_controller_enabled | default(false) | bool
+    - role: desktop/kiosk
+      when: hamstack_kiosk_enabled | default(false) | bool
+    - role: desktop/chirp
+      when: hamstack_chirp_enabled | default(false) | bool
+    - role: desktop/netlogger
+      when: hamstack_netlogger_enabled | default(false) | bool
+    - role: infrastructure/technitium-dns
+      when: hamstack_technitium_dns_enabled | default(false) | bool
+    - role: infrastructure/netboot
+      when: hamstack_netboot_enabled | default(false) | bool
+    - role: network/44connect
+      when: hamstack_44connect_enabled | default(false) | bool
+    - role: network/aredn
+      when: hamstack_aredn_enabled | default(false) | bool
+    - role: packet/graywolf
+      when: hamstack_graywolf_enabled | default(false) | bool
+    - role: packet/aprs
+      when: hamstack_aprs_enabled | default(false) | bool
+    - role: packet/enigma-bbs
+      when: hamstack_enigma_bbs_enabled | default(false) | bool
+    - role: packet/linbpq
+      when: hamstack_linbpq_enabled | default(false) | bool
+    - role: packet/winlink
+      when: hamstack_winlink_enabled | default(false) | bool
+    - role: services/cloudlog
+      when: hamstack_cloudlog_enabled | default(false) | bool
+    - role: services/dcdash
+      when: hamstack_dcdash_enabled | default(false) | bool
+    - role: services/gps-time
+      when: hamstack_gps_time_enabled | default(false) | bool
+    - role: services/wavelog
+      when: hamstack_wavelog_enabled | default(false) | bool
+    - role: services/blur-deck
+      when: hamstack_blur_deck_enabled | default(false) | bool
+    - role: services/conham-display
+      when: hamstack_conham_display_enabled | default(false) | bool
+    - role: services/gatus
+      when: hamstack_gatus_enabled | default(false) | bool
+    - role: services/meshtastic-dashboard
+      when: hamstack_meshtastic_dashboard_enabled | default(false) | bool
+    - role: visual/gridtracker
+      when: hamstack_gridtracker_enabled | default(false) | bool
+    - role: visual/openhamclock
+      when: hamstack_openhamclock_enabled | default(false) | bool
+    - role: visual/openwebrx
+      when: hamstack_openwebrx_enabled | default(false) | bool
+    - role: digital/selfie_station
+      when: hamstack_selfie_station_enabled | default(false) | bool
+    - role: digital/sstv-rx
+      when: hamstack_sstv_rx_enabled | default(false) | bool
+    - role: digital/sstv-workstation
+      when: hamstack_sstv_workstation_enabled | default(false) | bool
+    - role: voice/allstar
+      when: hamstack_allstar_enabled | default(false) | bool
+    - role: voice/wpsd
+      when: hamstack_wpsd_enabled | default(false) | bool

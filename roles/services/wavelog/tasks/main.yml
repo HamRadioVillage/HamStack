@@ -1,0 +1,111 @@
+---
+- name: Deploy local Wavelog service
+  when: hamstack_wavelog_enabled | bool
+  block:
+    - name: Validate Wavelog database secret
+      ansible.builtin.assert:
+        that:
+          - vault_hamstack_wavelog_database_password | default('') | length >= 12
+        fail_msg: >-
+          Set vault_hamstack_wavelog_database_password in the local Vault before
+          deploying Wavelog.
+
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create Wavelog service directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_wavelog_data_dir }}"
+        - "{{ hamstack_wavelog_data_dir }}/db"
+        - "{{ hamstack_wavelog_data_dir }}/caddy-data"
+        - "{{ hamstack_wavelog_data_dir }}/caddy-config"
+
+    - name: Create Wavelog application-writable directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: '999'
+        group: '33'
+        mode: "0775"
+      loop:
+        - "{{ hamstack_wavelog_data_dir }}/config"
+        - "{{ hamstack_wavelog_data_dir }}/uploads"
+        - "{{ hamstack_wavelog_data_dir }}/userdata"
+
+    - name: Render Wavelog Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_wavelog_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_wavelog_caddy
+
+    - name: Create Wavelog Docker network
+      community.docker.docker_network:
+        name: hamstack-wavelog
+
+    - name: Run Wavelog MariaDB container
+      community.docker.docker_container:
+        name: hamstack-wavelog-db
+        image: "{{ hamstack_wavelog_db_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_wavelog_autostart | bool else 'no' }}"
+        networks:
+          - name: hamstack-wavelog
+        env:
+          MARIADB_RANDOM_ROOT_PASSWORD: 'yes'
+          MARIADB_DATABASE: "{{ hamstack_wavelog_database_name }}"
+          MARIADB_USER: "{{ hamstack_wavelog_database_user }}"
+          MARIADB_PASSWORD: "{{ vault_hamstack_wavelog_database_password }}"
+        volumes:
+          - "{{ hamstack_wavelog_data_dir }}/db:/var/lib/mysql"
+      no_log: true
+
+    - name: Build Wavelog application environment
+      ansible.builtin.set_fact:
+        _hamstack_wavelog_environment: >-
+          {{
+            {
+              'CI_ENV': 'docker',
+              'DISABLE_CRON': ('true' if hamstack_wavelog_disable_cron else 'false')
+            } | combine(hamstack_wavelog_environment)
+          }}
+
+    - name: Run Wavelog application container
+      community.docker.docker_container:
+        name: hamstack-wavelog-main
+        image: "{{ hamstack_wavelog_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_wavelog_autostart | bool else 'no' }}"
+        networks:
+          - name: hamstack-wavelog
+        env: "{{ _hamstack_wavelog_environment }}"
+        volumes:
+          - "{{ hamstack_wavelog_data_dir }}/config:/var/www/html/application/config/docker"
+          - "{{ hamstack_wavelog_data_dir }}/uploads:/var/www/html/uploads"
+          - "{{ hamstack_wavelog_data_dir }}/userdata:/var/www/html/userdata"
+
+    - name: Run Wavelog HTTPS sidecar
+      community.docker.docker_container:
+        name: hamstack-wavelog-caddy
+        image: "{{ hamstack_wavelog_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_wavelog_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_wavelog_caddy.changed }}"
+        networks:
+          - name: hamstack-wavelog
+        published_ports:
+          - "{{ hamstack_wavelog_https_bind }}:{{ hamstack_wavelog_https_port }}:443"
+        volumes:
+          - "{{ hamstack_wavelog_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_wavelog_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_wavelog_data_dir }}/caddy-config:/config"

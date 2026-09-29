@@ -1,0 +1,20 @@
+# Managed by HamStack.
+#
+# gpsd provides receiver timing to chrony. In PPS mode HamStack uses SHM 0 as
+# the coarse NMEA source and the gpsd chrony SOCK associated with the PPS
+# device as the precision source. This works with gpsd releases that predate
+# the newer NMEA-only chrony socket.
+{% if _hamstack_gps_time_effective_refclock == 'pps-sock' %}
+refclock SHM 0 offset {{ hamstack_gps_time_nmea_offset_seconds }} delay {{ hamstack_gps_time_nmea_delay_seconds }} refid {{ hamstack_gps_time_nmea_refid }} noselect
+refclock SOCK /run/chrony.{{ _hamstack_gps_time_pps_basename }}.sock refid {{ hamstack_gps_time_pps_refid }} precision 1e-7
+{% elif _hamstack_gps_time_effective_refclock == 'sock' %}
+# gpsd 3.25+ NMEA-only socket path. Validate this mode against the installed gpsd.
+refclock SOCK /run/chrony.clk.{{ _hamstack_gps_time_serial_basename }}.sock offset {{ hamstack_gps_time_nmea_offset_seconds }} delay {{ hamstack_gps_time_nmea_delay_seconds }} refid {{ hamstack_gps_time_refid }}
+{% elif _hamstack_gps_time_effective_refclock == 'shm' %}
+refclock SHM 0 offset {{ hamstack_gps_time_nmea_offset_seconds }} delay {{ hamstack_gps_time_nmea_delay_seconds }} refid {{ hamstack_gps_time_refid }}
+{% if hamstack_gps_time_pps_enabled %}refclock SHM 1 refid {{ hamstack_gps_time_pps_refid }} precision 1e-7
+{% endif %}{% endif %}
+{% if hamstack_gps_time_makestep %}makestep 1.0 3
+{% endif %}{% if hamstack_gps_time_rtcsync %}rtcsync
+{% endif %}{% for network in hamstack_gps_time_allow_networks %}allow {{ network }}
+{% endfor %}

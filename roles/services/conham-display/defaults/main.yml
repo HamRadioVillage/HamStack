@@ -1,0 +1,12 @@
+---
+hamstack_conham_display_enabled: false
+hamstack_conham_source_mode: mirror
+hamstack_conham_source_url: https://conham.radio/
+hamstack_conham_event_path: /dc
+hamstack_conham_refresh_minutes: 15
+hamstack_conham_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/conham-display' }}"
+hamstack_conham_https_bind: 0.0.0.0
+hamstack_conham_https_port: 8446
+hamstack_conham_tls_host: "{{ inventory_hostname }}"
+hamstack_conham_caddy_image: caddy:2-alpine
+hamstack_conham_autostart: true

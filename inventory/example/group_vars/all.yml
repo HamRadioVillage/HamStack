@@ -1,0 +1,18 @@
+---
+# Site-wide HamStack configuration.
+# Copy inventory/example to inventory/local and edit the local copy.
+# Do not put secrets in this file.
+
+hamstack_site_name: My HamStack
+hamstack_event_name: ''
+hamstack_callsign: N0CALL
+hamstack_grid_locator: ''
+hamstack_latitude: null
+hamstack_longitude: null
+hamstack_country_code: US
+hamstack_timezone: Etc/UTC
+hamstack_locale: en_US.UTF-8
+hamstack_config_dir: /etc/hamstack
+hamstack_data_dir: /var/lib/hamstack
+hamstack_cache_dir: /var/cache/hamstack
+hamstack_log_dir: /var/log/hamstack

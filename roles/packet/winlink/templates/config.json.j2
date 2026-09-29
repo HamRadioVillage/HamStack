@@ -1,0 +1,48 @@
+{{ {
+  'mycall': hamstack_winlink_callsign,
+  'secure_login_password': vault_hamstack_winlink_password | default(''),
+  'auxiliary_addresses': [],
+  'locator': hamstack_winlink_locator,
+  'auto_download_size_limit': -1,
+  'service_codes': hamstack_winlink_service_codes,
+  'http_addr': hamstack_winlink_http_bind ~ ':' ~ (hamstack_winlink_http_port | string),
+  'motd': hamstack_winlink_motd,
+  'connect_aliases': hamstack_winlink_connect_aliases,
+  'listen': hamstack_winlink_listen,
+  'hamlib_rigs': hamstack_winlink_hamlib_rigs,
+  'ax25': {
+    'engine': hamstack_winlink_ax25_engine,
+    'rig': '',
+    'beacon': {'every': 3600, 'message': 'Winlink P2P', 'destination': 'IDENT'}
+  },
+  'ax25_linux': {'port': hamstack_winlink_ax25_port},
+  'agwpe': {'addr': hamstack_winlink_agwpe_addr, 'radio_port': hamstack_winlink_agwpe_radio_port},
+  'serial-tnc': {
+    'path': hamstack_winlink_serial_tnc_path,
+    'serial_baud': hamstack_winlink_serial_tnc_baud,
+    'hbaud': hamstack_winlink_serial_tnc_hbaud,
+    'type': hamstack_winlink_serial_tnc_type
+  },
+  'ardop': {
+    'addr': hamstack_winlink_ardop_addr,
+    'arq_bandwidth': {'Forced': false, 'Max': 500},
+    'connect_requests': 3,
+    'rig': hamstack_winlink_ardop_rig,
+    'ptt_ctrl': hamstack_winlink_ardop_ptt_control,
+    'beacon_interval': 0,
+    'cwid_enabled': true
+  },
+  'pactor': {'path': '/dev/ttyUSB0', 'baudrate': 57600, 'rig': '', 'custom_init_script': ''},
+  'telnet': {'listen_addr': ':8774', 'password': ''},
+  'varahf': {'addr': hamstack_winlink_varahf_addr, 'bandwidth': hamstack_winlink_varahf_bandwidth, 'rig': '', 'ptt_ctrl': false},
+  'varafm': {'addr': hamstack_winlink_varafm_addr, 'rig': '', 'ptt_ctrl': false},
+  'gpsd': {
+    'enable_http': hamstack_winlink_gpsd_enable_http,
+    'allow_forms': hamstack_winlink_gpsd_allow_forms,
+    'use_server_time': false,
+    'update_locator': false,
+    'addr': hamstack_winlink_gpsd_addr
+  },
+  'schedule': {},
+  'version_reporting_disabled': hamstack_winlink_version_reporting_disabled
+} | combine(hamstack_winlink_extra_config, recursive=True) | to_nice_json }}

@@ -1,0 +1,18 @@
+Listen {{ hamstack_cloudlog_https_bind }}:{{ hamstack_cloudlog_https_port }}
+<VirtualHost {{ hamstack_cloudlog_https_bind }}:{{ hamstack_cloudlog_https_port }}>
+    ServerName {{ hamstack_cloudlog_tls_common_name }}
+    DocumentRoot {{ hamstack_cloudlog_install_dir }}
+
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/hamstack-cloudlog/cloudlog.crt
+    SSLCertificateKeyFile /etc/ssl/hamstack-cloudlog/cloudlog.key
+
+    <Directory {{ hamstack_cloudlog_install_dir }}>
+        Options FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog ${APACHE_LOG_DIR}/cloudlog-error.log
+    CustomLog ${APACHE_LOG_DIR}/cloudlog-access.log combined
+</VirtualHost>

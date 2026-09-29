@@ -1,0 +1,17 @@
+---
+hamstack_openhamclock_enabled: false
+hamstack_openhamclock_install: true
+hamstack_openhamclock_image: ghcr.io/accius/openhamclock:latest
+hamstack_openhamclock_container_name: hamstack-openhamclock
+hamstack_openhamclock_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_openhamclock_grid_locator: "{{ hamstack_grid_locator | default('') }}"
+hamstack_openhamclock_latitude: "{{ hamstack_latitude | default(none) }}"
+hamstack_openhamclock_longitude: "{{ hamstack_longitude | default(none) }}"
+hamstack_openhamclock_https_bind: 0.0.0.0
+hamstack_openhamclock_https_port: 8449
+hamstack_openhamclock_tls_host: "{{ inventory_hostname }}"
+hamstack_openhamclock_caddy_image: caddy:2-alpine
+hamstack_openhamclock_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/openhamclock' }}"
+hamstack_openhamclock_environment: {}
+hamstack_openhamclock_autostart: true
+hamstack_openhamclock_extra_settings: {}

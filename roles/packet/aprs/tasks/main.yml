@@ -1,0 +1,226 @@
+---
+- name: Configure Graywolf APRS conference profile
+  when: hamstack_aprs_enabled | bool
+  block:
+    - name: Verify APRS backend and callsign
+      ansible.builtin.assert:
+        that:
+          - hamstack_aprs_backend == "graywolf"
+          - hamstack_aprs_callsign != "N0CALL"
+          - 0 <= (hamstack_aprs_ssid | int) <= 15
+          - hamstack_aprs_graywolf_username | length > 0
+          - hamstack_aprs_graywolf_password | length >= 8
+        fail_msg: >-
+          APRS requires an existing Graywolf station plus a real callsign/SSID
+          and Graywolf management credentials. Put the password in
+          vault_hamstack_graywolf_password.
+
+    - name: Build APRS station callsign
+      ansible.builtin.set_fact:
+        _hamstack_aprs_station_call: >-
+          {{
+            hamstack_aprs_callsign
+            if (hamstack_aprs_ssid | int) == 0
+            else hamstack_aprs_callsign ~ '-' ~ (hamstack_aprs_ssid | string)
+          }}
+
+    - name: Wait for Graywolf API
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/health"
+        method: GET
+        status_code:
+          - 200
+          - 401
+      register: _hamstack_aprs_health
+      retries: 10
+      delay: 2
+      until: _hamstack_aprs_health.status in [200, 401]
+
+    - name: Read Graywolf first-run setup state
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/auth/setup"
+        method: GET
+        return_content: true
+        status_code: 200
+      register: _hamstack_aprs_setup_state
+
+    - name: Refuse to claim an unconfigured Graywolf when first-user management is disabled
+      ansible.builtin.assert:
+        that:
+          - not (_hamstack_aprs_setup_state.json.needs_setup | default(false) | bool)
+        fail_msg: >-
+          Graywolf has no management user yet. Either create one manually, or
+          set hamstack_aprs_graywolf_manage_first_user=true so HamStack creates
+          the configured management account.
+      when: not (hamstack_aprs_graywolf_manage_first_user | bool)
+
+    - name: Create Graywolf first-run management user
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/auth/setup"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ hamstack_aprs_graywolf_username }}"
+          password: "{{ hamstack_aprs_graywolf_password }}"
+        status_code: 201
+      no_log: true
+      when:
+        - hamstack_aprs_graywolf_manage_first_user | bool
+        - _hamstack_aprs_setup_state.json.needs_setup | default(false) | bool
+
+    - name: Log in to Graywolf management API
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/auth/login"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ hamstack_aprs_graywolf_username }}"
+          password: "{{ hamstack_aprs_graywolf_password }}"
+        status_code: 200
+      register: _hamstack_aprs_login
+      no_log: true
+
+    - name: Verify Graywolf supplied a session cookie
+      ansible.builtin.assert:
+        that:
+          - _hamstack_aprs_login.cookies_string | default('') | length > 0
+        fail_msg: "Graywolf login succeeded without returning a reusable session cookie."
+      no_log: true
+
+    - name: Read Graywolf station configuration
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/station/config"
+        method: GET
+        headers:
+          Cookie: "{{ _hamstack_aprs_login.cookies_string }}"
+        return_content: true
+        status_code: 200
+      register: _hamstack_aprs_station_current
+      no_log: true
+
+    - name: Configure Graywolf station callsign
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/station/config"
+        method: PUT
+        headers:
+          Cookie: "{{ _hamstack_aprs_login.cookies_string }}"
+        body_format: json
+        body:
+          callsign: "{{ _hamstack_aprs_station_call }}"
+        status_code:
+          - 200
+          - 204
+      when: _hamstack_aprs_station_current.json.callsign != _hamstack_aprs_station_call
+      no_log: true
+
+    - name: Read Graywolf iGate configuration
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/igate/config"
+        method: GET
+        headers:
+          Cookie: "{{ _hamstack_aprs_login.cookies_string }}"
+        return_content: true
+        status_code: 200
+      register: _hamstack_aprs_igate_current
+      no_log: true
+
+    - name: Build desired Graywolf iGate configuration
+      ansible.builtin.set_fact:
+        _hamstack_aprs_igate_desired:
+          enabled: "{{ hamstack_aprs_igate_enabled | bool }}"
+          server: "{{ hamstack_aprs_igate_server }}"
+          port: "{{ hamstack_aprs_igate_port | int }}"
+          server_filter: "{{ hamstack_aprs_igate_server_filter }}"
+          simulation_mode: "{{ hamstack_aprs_simulation_mode | bool }}"
+          gate_rf_to_is: "{{ hamstack_aprs_igate_rf_to_is | bool }}"
+          gate_is_to_rf: "{{ hamstack_aprs_igate_is_to_rf | bool }}"
+          rf_channel: "{{ (hamstack_aprs_graywolf_channel_id | int) if hamstack_aprs_graywolf_channel_id is not none else 0 }}"
+          is_tx_via: "{{ hamstack_aprs_igate_is_tx_via }}"
+          software_name: "{{ _hamstack_aprs_igate_current.json.software_name | default('graywolf') }}"
+          software_version: "{{ _hamstack_aprs_igate_current.json.software_version | default('0.1') }}"
+          tx_channel: "{{ (hamstack_aprs_igate_tx_channel | int) if hamstack_aprs_igate_tx_channel is not none else 0 }}"
+
+    - name: Configure Graywolf iGate profile
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/igate/config"
+        method: PUT
+        headers:
+          Cookie: "{{ _hamstack_aprs_login.cookies_string }}"
+        body_format: json
+        body: "{{ _hamstack_aprs_igate_desired }}"
+        status_code:
+          - 200
+          - 204
+      when: >-
+        (_hamstack_aprs_igate_current.json.enabled | default(false) | bool) != (hamstack_aprs_igate_enabled | bool)
+        or (_hamstack_aprs_igate_current.json.server | default('')) != hamstack_aprs_igate_server
+        or (_hamstack_aprs_igate_current.json.port | default(0) | int) != (hamstack_aprs_igate_port | int)
+        or (_hamstack_aprs_igate_current.json.server_filter | default('')) != hamstack_aprs_igate_server_filter
+        or (_hamstack_aprs_igate_current.json.simulation_mode | default(false) | bool) != (hamstack_aprs_simulation_mode | bool)
+        or (_hamstack_aprs_igate_current.json.gate_rf_to_is | default(false) | bool) != (hamstack_aprs_igate_rf_to_is | bool)
+        or (_hamstack_aprs_igate_current.json.gate_is_to_rf | default(false) | bool) != (hamstack_aprs_igate_is_to_rf | bool)
+        or (_hamstack_aprs_igate_current.json.rf_channel | default(0) | int) != ((hamstack_aprs_graywolf_channel_id | int) if hamstack_aprs_graywolf_channel_id is not none else 0)
+        or (_hamstack_aprs_igate_current.json.is_tx_via | default('')) != hamstack_aprs_igate_is_tx_via
+        or (_hamstack_aprs_igate_current.json.tx_channel | default(0) | int) != ((hamstack_aprs_igate_tx_channel | int) if hamstack_aprs_igate_tx_channel is not none else 0)
+      no_log: true
+
+    - name: Read Graywolf digipeater configuration
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/digipeater"
+        method: GET
+        headers:
+          Cookie: "{{ _hamstack_aprs_login.cookies_string }}"
+        return_content: true
+        status_code: 200
+      register: _hamstack_aprs_digi_current
+      no_log: true
+
+    - name: Build desired Graywolf digipeater configuration
+      ansible.builtin.set_fact:
+        _hamstack_aprs_digi_desired:
+          enabled: "{{ hamstack_aprs_digipeater_enabled | bool }}"
+          dedupe_window_seconds: "{{ hamstack_aprs_digipeater_dedupe_window_seconds | int }}"
+          my_call: >-
+            {{
+              hamstack_aprs_digipeater_callsign
+              if hamstack_aprs_digipeater_callsign | length > 0
+              else _hamstack_aprs_station_call
+            }}
+
+    - name: Configure Graywolf digipeater profile
+      ansible.builtin.uri:
+        url: "{{ hamstack_aprs_graywolf_api_url }}/digipeater"
+        method: PUT
+        headers:
+          Cookie: "{{ _hamstack_aprs_login.cookies_string }}"
+        body_format: json
+        body: "{{ _hamstack_aprs_digi_desired }}"
+        status_code:
+          - 200
+          - 204
+      when: >-
+        (_hamstack_aprs_digi_current.json.enabled | default(false) | bool) != (hamstack_aprs_digipeater_enabled | bool)
+        or (_hamstack_aprs_digi_current.json.dedupe_window_seconds | default(30) | int) != (hamstack_aprs_digipeater_dedupe_window_seconds | int)
+        or (_hamstack_aprs_digi_current.json.my_call | default('')) != (
+          hamstack_aprs_digipeater_callsign
+          if hamstack_aprs_digipeater_callsign | length > 0
+          else _hamstack_aprs_station_call
+        )
+      no_log: true
+
+    - name: Stop before untested automated beacon CRUD
+      ansible.builtin.fail:
+        msg: >-
+          hamstack_aprs_beacon_enabled is defined, but automatic Graywolf beacon
+          creation/update is intentionally deferred until identity matching is
+          verified against a live node. Configure the beacon manually in Graywolf or leave
+          hamstack_aprs_beacon_enabled false.
+      when: hamstack_aprs_beacon_enabled | bool
+
+    - name: Stop before untested automated digipeater rule CRUD
+      ansible.builtin.fail:
+        msg: >-
+          hamstack_aprs_digipeater_rules is reserved for managed Graywolf digi
+          rules, but rule CRUD is intentionally deferred until validated on a live
+          conference node.
+      when: hamstack_aprs_digipeater_rules | length > 0

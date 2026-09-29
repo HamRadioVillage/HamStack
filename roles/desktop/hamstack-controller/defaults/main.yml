@@ -1,0 +1,18 @@
+---
+hamstack_controller_enabled: false
+hamstack_controller_user: "{{ hamstack_operator_user | default('') }}"
+hamstack_controller_repo_path: ''
+hamstack_controller_venv_dir: ''
+hamstack_controller_install_packages: true
+hamstack_controller_packages:
+  - openssh-client
+  - python3
+  - python3-venv
+  - python3-pip
+  - curl
+  - jq
+  - rsync
+  - unzip
+hamstack_controller_install_python_requirements: true
+hamstack_controller_install_collections: true
+hamstack_controller_extra_packages: []

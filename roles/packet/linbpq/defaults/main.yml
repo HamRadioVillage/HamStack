@@ -1,0 +1,116 @@
+---
+hamstack_linbpq_enabled: false
+hamstack_linbpq_install: false
+hamstack_linbpq_binary_url: ''
+hamstack_linbpq_binary_checksum: ''
+hamstack_linbpq_binary_path: /opt/linbpq/linbpq
+hamstack_linbpq_service_user: linbpq
+hamstack_linbpq_install_dir: /opt/linbpq
+hamstack_linbpq_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/linbpq' }}"
+hamstack_linbpq_config_path: "{{ hamstack_linbpq_data_dir }}/bpq32.cfg"
+
+# Identity. A complete callsign may be supplied directly, or derived from the
+# deployment callsign plus an SSID. SSIDs are intentionally unset by default.
+hamstack_linbpq_callsign_base: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_linbpq_node_callsign: ''
+hamstack_linbpq_node_ssid: null
+hamstack_linbpq_node_alias: ''
+hamstack_linbpq_locator: "{{ hamstack_grid_locator | default('') }}"
+
+hamstack_linbpq_bbs_enabled: true
+hamstack_linbpq_bbs_callsign: ''
+hamstack_linbpq_bbs_ssid: null
+hamstack_linbpq_bbs_alias: BBS
+hamstack_linbpq_bbs_application_number: 1
+hamstack_linbpq_bbs_application_command: BBS
+hamstack_linbpq_bbs_application_quality: 255
+
+# Node behavior. These values came from a proven conference-node baseline but
+# are ordinary variables, not a DEF CON-specific profile.
+hamstack_linbpq_node_options:
+  OBSINIT: 6
+  OBSMIN: 4
+  NODESINTERVAL: 30
+  L3TIMETOLIVE: 20
+  L4RETRIES: 3
+  L4TIMEOUT: 60
+  L4DELAY: 10
+  L4WINDOW: 4
+  MAXLINKS: 64
+  MAXNODES: 256
+  MAXROUTES: 64
+  MAXCIRCUITS: 128
+  MINQUAL: 100
+  PACLEN: 128
+  T3: 120
+  IDLETIME: 900
+  AUTOSAVE: 1
+  BBS: 1
+  NODE: 1
+  HIDENODES: 0
+  ENABLE_LINKED: A
+
+hamstack_linbpq_id_interval: 9
+hamstack_linbpq_beacon_interval: 10
+hamstack_linbpq_id_message: ''
+hamstack_linbpq_beacon_text: ''
+hamstack_linbpq_full_connect_text: true
+hamstack_linbpq_connect_text: ''
+hamstack_linbpq_info_message: ''
+
+# Graywolf remains modem/PTT owner. Each RF port normally connects to one
+# loopback KISS TCP endpoint. Every value may be overridden per port.
+hamstack_linbpq_kiss_options: NOPARAMS
+hamstack_linbpq_port_defaults:
+  kiss_host: 127.0.0.1
+  channel: A
+  fulldup: 0
+  quality: 192
+  persist: 64
+  slottime: 100
+  txdelay: 300
+  txtail: 100
+  frack: 8000
+  resptime: 1500
+  retries: 10
+  maxframe: 2
+  paclen: 128
+  digiflag: 0
+  users: 15
+
+# Example item:
+#   - portnum: 1
+#     id: 70cm packet
+#     kiss_port: 6700
+#     # Any key from hamstack_linbpq_port_defaults may be overridden here.
+hamstack_linbpq_ports: []
+
+# IP/Telnet/Web service port.
+hamstack_linbpq_ip_service_portnum: 20
+hamstack_linbpq_ip_service_id: Telnet and Web Services
+hamstack_linbpq_ip_service_quality: 0
+hamstack_linbpq_telnet_enabled: false
+hamstack_linbpq_telnet_port: 8010
+hamstack_linbpq_fbb_port: 8011
+hamstack_linbpq_web_enabled: true
+hamstack_linbpq_web_port: 8080
+hamstack_linbpq_telnet_logging: true
+hamstack_linbpq_disconnect_on_close: false
+hamstack_linbpq_secure_telnet: true
+hamstack_linbpq_ipv4_enabled: true
+hamstack_linbpq_ipv6_enabled: false
+hamstack_linbpq_login_prompt: 'callsign:'
+hamstack_linbpq_password_prompt: 'password:'
+hamstack_linbpq_max_sessions: 32
+hamstack_linbpq_telnet_ctext: ''
+hamstack_linbpq_anonymous_enabled: false
+hamstack_linbpq_anonymous_username: ANON
+hamstack_linbpq_anonymous_password: pass
+hamstack_linbpq_telnet_users: "{{ vault_hamstack_linbpq_telnet_users | default([]) }}"
+
+# Additional applications and escape hatches for options not modeled yet.
+hamstack_linbpq_applications: []
+hamstack_linbpq_extra_settings: {}
+hamstack_linbpq_raw_config_append: ''
+
+hamstack_linbpq_autostart: true

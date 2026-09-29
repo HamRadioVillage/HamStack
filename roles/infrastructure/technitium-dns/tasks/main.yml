@@ -1,0 +1,237 @@
+---
+- name: Deploy Technitium DNS infrastructure service
+  when: hamstack_technitium_dns_enabled | bool
+  block:
+    - name: Validate Technitium DNS inputs
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - vault_hamstack_technitium_admin_password | default('') | length >= 8
+          - hamstack_technitium_dns_default_zone | length > 0
+        fail_msg: >-
+          Technitium requires Debian-family container hosting, a nontrivial
+          vault_hamstack_technitium_admin_password, and a default zone name.
+
+    - name: Install HamStack container runtime for Technitium
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Create Technitium persistent directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - "{{ hamstack_technitium_dns_data_dir }}"
+        - "{{ hamstack_technitium_dns_data_dir }}/config"
+        - "{{ hamstack_technitium_dns_data_dir }}/logs"
+        - "{{ hamstack_technitium_dns_zonefile_dir }}"
+
+    - name: Run Technitium DNS Server container
+      community.docker.docker_container:
+        name: "{{ hamstack_technitium_dns_container_name }}"
+        image: "{{ hamstack_technitium_dns_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_technitium_dns_autostart | bool else 'no' }}"
+        env: >-
+          {{ {
+               'DNS_SERVER_DOMAIN': hamstack_technitium_dns_domain,
+               'DNS_SERVER_ADMIN_PASSWORD': vault_hamstack_technitium_admin_password,
+               'DNS_SERVER_WEB_SERVICE_ENABLE_HTTPS': 'true',
+               'DNS_SERVER_WEB_SERVICE_USE_SELF_SIGNED_CERT': 'true',
+               'DNS_SERVER_WEB_SERVICE_HTTP_TO_TLS_REDIRECT': 'false',
+               'DNS_SERVER_FORWARDERS': hamstack_technitium_dns_forwarders | join(','),
+               'DNS_SERVER_FORWARDER_PROTOCOL': hamstack_technitium_dns_forwarder_protocol,
+               'DNS_SERVER_RECURSION': hamstack_technitium_dns_recursion,
+               'DNS_SERVER_LOG_FOLDER_PATH': '/var/log/technitium/dns'
+             } | combine(hamstack_technitium_dns_extra_env) }}
+        published_ports:
+          - "{{ hamstack_technitium_dns_bind_address }}:{{ hamstack_technitium_dns_port }}:53/tcp"
+          - "{{ hamstack_technitium_dns_bind_address }}:{{ hamstack_technitium_dns_port }}:53/udp"
+          - "127.0.0.1:5380:5380/tcp"
+          - "{{ hamstack_technitium_dns_web_bind }}:{{ hamstack_technitium_dns_https_port }}:53443/tcp"
+        volumes:
+          - "{{ hamstack_technitium_dns_data_dir }}/config:/etc/dns"
+          - "{{ hamstack_technitium_dns_data_dir }}/logs:/var/log/technitium/dns"
+      no_log: true
+
+    - name: Wait for Technitium health endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5380/api/dnsClient/healthCheck
+        method: GET
+        return_content: true
+        status_code: 200
+      register: _hamstack_technitium_health
+      retries: 20
+      delay: 3
+      until: _hamstack_technitium_health.status == 200
+
+    - name: Authenticate to Technitium for optional zone bootstrap
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5380/api/user/login
+        method: POST
+        body_format: form-urlencoded
+        body:
+          user: admin
+          pass: "{{ vault_hamstack_technitium_admin_password }}"
+          includeInfo: 'true'
+        return_content: true
+        status_code: 200
+      register: _hamstack_technitium_login
+      no_log: true
+      when:
+        - hamstack_technitium_dns_bootstrap_zone | bool or hamstack_technitium_dns_manage_zonefile | bool
+
+    - name: Read existing Technitium authoritative zones
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5380/api/zones/list
+        method: GET
+        return_content: true
+        headers:
+          Authorization: "Bearer {{ _hamstack_technitium_login.json.token }}"
+        status_code: 200
+      register: _hamstack_technitium_zones
+      no_log: true
+      when: hamstack_technitium_dns_bootstrap_zone | bool
+
+    - name: Create default HamStack primary DNS zone when absent
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5380/api/zones/create
+        method: POST
+        body_format: form-urlencoded
+        body:
+          zone: "{{ hamstack_technitium_dns_default_zone }}"
+          type: Primary
+        return_content: true
+        headers:
+          Authorization: "Bearer {{ _hamstack_technitium_login.json.token }}"
+        status_code: 200
+      no_log: true
+      when:
+        - hamstack_technitium_dns_bootstrap_zone | bool
+        - hamstack_technitium_dns_default_zone not in
+          (_hamstack_technitium_zones.json.response.zones | default([]) | map(attribute='name') | list)
+
+    - name: Select effective Technitium automatic record address
+      ansible.builtin.set_fact:
+        _hamstack_technitium_dns_auto_address: >-
+          {{ hamstack_technitium_dns_auto_address
+             if hamstack_technitium_dns_auto_address | length > 0
+             else ansible_facts['default_ipv4']['address'] }}
+      when: hamstack_technitium_dns_manage_zonefile | bool
+
+    - name: Build automatic DNS candidates for enabled local services
+      ansible.builtin.set_fact:
+        _hamstack_technitium_dns_auto_candidates:
+          - name: "{{ hamstack_technitium_dns_domain }}"
+            enabled: true
+          - name: "{{ hamstack_ft8web_tls_host | default('') }}"
+            enabled: "{{ hamstack_ft8web_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_gatus_tls_host | default('') }}"
+            enabled: "{{ hamstack_gatus_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_openhamclock_tls_host | default('') }}"
+            enabled: "{{ hamstack_openhamclock_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_enigma_bbs_tls_host | default('') }}"
+            enabled: "{{ hamstack_enigma_bbs_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_conham_tls_host | default('') }}"
+            enabled: "{{ hamstack_conham_display_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_wavelog_tls_host | default('') }}"
+            enabled: "{{ hamstack_wavelog_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_cloudlog_tls_common_name | default('') }}"
+            enabled: "{{ hamstack_cloudlog_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_meshtastic_dashboard_tls_host | default('') }}"
+            enabled: "{{ hamstack_meshtastic_dashboard_enabled | default(false) | bool }}"
+          - name: "{{ hamstack_openwebrx_tls_host | default('') }}"
+            enabled: "{{ hamstack_openwebrx_enabled | default(false) | bool }}"
+      when:
+        - hamstack_technitium_dns_manage_zonefile | bool
+        - hamstack_technitium_dns_auto_service_records | bool
+
+    - name: Select automatic records that belong in the managed local zone
+      ansible.builtin.set_fact:
+        _hamstack_technitium_dns_auto_records: >-
+          {{ (_hamstack_technitium_dns_auto_records | default([]))
+             + [ {
+                   'name': item.name,
+                   'type': ('AAAA' if ':' in _hamstack_technitium_dns_auto_address else 'A'),
+                   'value': _hamstack_technitium_dns_auto_address,
+                   'ttl': hamstack_technitium_dns_default_ttl
+                 } ] }}
+      loop: "{{ _hamstack_technitium_dns_auto_candidates | default([]) }}"
+      when:
+        - hamstack_technitium_dns_manage_zonefile | bool
+        - hamstack_technitium_dns_auto_service_records | bool
+        - item.enabled | bool
+        - item.name | length > 0
+        - "':' not in item.name"
+        - item.name is not match('^\d{1,3}(\.\d{1,3}){3}$')
+        - >-
+          '.' not in item.name or
+          item.name == hamstack_technitium_dns_default_zone or
+          item.name.endswith('.' ~ hamstack_technitium_dns_default_zone) or
+          item.name.endswith('.' ~ hamstack_technitium_dns_default_zone ~ '.')
+
+    - name: Combine automatic and operator-supplied Technitium records
+      ansible.builtin.set_fact:
+        _hamstack_technitium_dns_managed_records: >-
+          {{ ((_hamstack_technitium_dns_auto_records | default([]))
+              | unique(attribute='name') | list)
+             + hamstack_technitium_dns_records }}
+      when: hamstack_technitium_dns_manage_zonefile | bool
+
+    - name: Validate managed Technitium DNS records
+      ansible.builtin.assert:
+        that:
+          - item.name | default('') | length > 0
+          - item.type | default('') | upper in ['A', 'AAAA', 'CNAME', 'TXT', 'MX', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'URI']
+          - item.value | default('') | string | length > 0
+          - item.ttl | default(hamstack_technitium_dns_default_ttl) | int > 0
+          - >-
+            '.' not in item.name or
+            item.name == hamstack_technitium_dns_default_zone or
+            item.name.endswith('.' ~ hamstack_technitium_dns_default_zone) or
+            item.name.endswith('.' ~ hamstack_technitium_dns_default_zone ~ '.')
+        fail_msg: >-
+          Each hamstack_technitium_dns_records entry requires name, supported
+          type, value, and a positive TTL when one is supplied.
+      loop: "{{ _hamstack_technitium_dns_managed_records | default([]) }}"
+      when: hamstack_technitium_dns_manage_zonefile | bool
+
+    - name: Render HamStack-managed Technitium zone fragment
+      ansible.builtin.template:
+        src: managed-zone.zone.j2
+        dest: "{{ hamstack_technitium_dns_zonefile_path }}"
+        owner: root
+        group: root
+        mode: '0644'
+      register: _hamstack_technitium_zonefile
+      when: hamstack_technitium_dns_manage_zonefile | bool
+
+    - name: Read HamStack-managed Technitium zone fragment
+      ansible.builtin.slurp:
+        src: "{{ hamstack_technitium_dns_zonefile_path }}"
+      register: _hamstack_technitium_zonefile_content
+      when:
+        - hamstack_technitium_dns_manage_zonefile | bool
+        - _hamstack_technitium_dns_managed_records | default([]) | length > 0
+
+    - name: Import HamStack-managed records into Technitium
+      ansible.builtin.uri:
+        url: >-
+          http://127.0.0.1:5380/api/zones/import?zone={{ hamstack_technitium_dns_default_zone | urlencode }}&overwrite=true&overwriteZone=false&overwriteSoaSerial=false
+        method: POST
+        headers:
+          Authorization: "Bearer {{ _hamstack_technitium_login.json.token }}"
+          Content-Type: text/plain
+        body: "{{ _hamstack_technitium_zonefile_content.content | b64decode }}"
+        status_code: 200
+        return_content: true
+      register: _hamstack_technitium_zone_import
+      changed_when: _hamstack_technitium_zonefile.changed
+      no_log: true
+      when:
+        - hamstack_technitium_dns_manage_zonefile | bool
+        - _hamstack_technitium_dns_managed_records | default([]) | length > 0

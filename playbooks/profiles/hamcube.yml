@@ -1,0 +1,31 @@
+---
+- name: Configure HamStack central service/display profile
+  hosts: "{{ hamstack_profile_hosts | default('hamcube') }}"
+  become: true
+  roles:
+    - role: common
+    - role: services/gatus
+      vars:
+        hamstack_gatus_enabled: true
+      when: hamstack_profile_hamcube_gatus | default(true) | bool
+    - role: services/conham-display
+      vars:
+        hamstack_conham_display_enabled: true
+      when: hamstack_profile_hamcube_conham | default(true) | bool
+    - role: services/blur-deck
+      vars:
+        hamstack_blur_deck_enabled: true
+      when: hamstack_profile_hamcube_blur_deck | default(true) | bool
+    - role: infrastructure/technitium-dns
+      vars:
+        hamstack_technitium_dns_enabled: true
+      when: hamstack_profile_hamcube_technitium | default(false) | bool
+    - role: visual/openhamclock
+      vars:
+        hamstack_openhamclock_enabled: true
+      when: hamstack_profile_hamcube_openhamclock | default(false) | bool
+    - role: desktop/kiosk
+      vars:
+        hamstack_kiosk_enabled: true
+        hamstack_kiosk_url: "{{ hamstack_profile_hamcube_kiosk_url | default('http://127.0.0.1:' ~ (hamstack_gatus_loopback_http_port | default(18080) | string) ~ '/') }}"
+      when: hamstack_profile_hamcube_kiosk | default(true) | bool

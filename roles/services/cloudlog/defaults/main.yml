@@ -1,0 +1,11 @@
+---
+hamstack_cloudlog_enabled: false
+hamstack_cloudlog_source_repo: https://github.com/magicbug/Cloudlog.git
+hamstack_cloudlog_source_ref: master
+hamstack_cloudlog_install_dir: /opt/cloudlog
+hamstack_cloudlog_database_name: cloudlog
+hamstack_cloudlog_database_user: cloudlog
+hamstack_cloudlog_https_bind: 0.0.0.0
+hamstack_cloudlog_https_port: 8452
+hamstack_cloudlog_tls_common_name: "{{ inventory_hostname }}"
+hamstack_cloudlog_autostart: true

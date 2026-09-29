@@ -1,0 +1,167 @@
+---
+- name: Deploy local Cloudlog service
+  when: hamstack_cloudlog_enabled | bool
+  block:
+    - name: Validate Cloudlog database secret
+      ansible.builtin.assert:
+        that:
+          - vault_hamstack_cloudlog_database_password | default('') | length >= 12
+        fail_msg: >-
+          Set vault_hamstack_cloudlog_database_password in the local Vault before
+          deploying Cloudlog.
+
+    - name: Install Cloudlog runtime packages
+      ansible.builtin.apt:
+        name:
+          - apache2
+          - git
+          - mariadb-server
+          - python3-pymysql
+          - openssl
+          - php
+          - php-cli
+          - php-curl
+          - php-gd
+          - php-intl
+          - php-mbstring
+          - php-mysql
+          - php-xml
+          - php-zip
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Enable Cloudlog Apache modules
+      community.general.apache2_module:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - rewrite
+        - ssl
+      notify: Restart Apache
+
+    - name: Check out Cloudlog source
+      ansible.builtin.git:
+        repo: "{{ hamstack_cloudlog_source_repo }}"
+        dest: "{{ hamstack_cloudlog_install_dir }}"
+        version: "{{ hamstack_cloudlog_source_ref }}"
+        update: true
+      notify: Restart Apache
+
+    - name: Keep Cloudlog application source root-owned
+      ansible.builtin.file:
+        path: "{{ hamstack_cloudlog_install_dir }}"
+        owner: root
+        group: root
+        recurse: true
+
+    - name: Grant the web service write access only to Cloudlog runtime paths
+      ansible.builtin.file:
+        path: "{{ hamstack_cloudlog_install_dir }}/{{ item }}"
+        state: directory
+        owner: root
+        group: www-data
+        mode: "u=rwX,g=rwX,o=rX"
+        recurse: true
+      loop:
+        - application/config
+        - application/logs
+        - assets/qslcard
+        - assets/json
+        - assets/sstvimages
+        - backup
+        - images/eqsl_card_images
+        - updates
+        - uploads
+
+    - name: Ensure MariaDB is enabled and running
+      ansible.builtin.service:
+        name: mariadb
+        enabled: true
+        state: started
+
+    - name: Create Cloudlog database
+      ansible.mysql.mysql_db:
+        name: "{{ hamstack_cloudlog_database_name }}"
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+
+    - name: Create Cloudlog database user
+      ansible.mysql.mysql_user:
+        name: "{{ hamstack_cloudlog_database_user }}"
+        password: "{{ vault_hamstack_cloudlog_database_password }}"
+        priv: "{{ hamstack_cloudlog_database_name }}.*:ALL"
+        host: localhost
+        state: present
+        login_unix_socket: /run/mysqld/mysqld.sock
+      no_log: true
+
+    - name: Create Cloudlog TLS directory
+      ansible.builtin.file:
+        path: /etc/ssl/hamstack-cloudlog
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Generate Cloudlog self-signed TLS certificate
+      ansible.builtin.command:
+        argv:
+          - openssl
+          - req
+          - -x509
+          - -newkey
+          - rsa:2048
+          - -nodes
+          - -days
+          - '825'
+          - -keyout
+          - /etc/ssl/hamstack-cloudlog/cloudlog.key
+          - -out
+          - /etc/ssl/hamstack-cloudlog/cloudlog.crt
+          - -subj
+          - "/CN={{ hamstack_cloudlog_tls_common_name }}"
+      args:
+        creates: /etc/ssl/hamstack-cloudlog/cloudlog.crt
+      notify: Restart Apache
+
+    - name: Protect Cloudlog TLS key
+      ansible.builtin.file:
+        path: /etc/ssl/hamstack-cloudlog/cloudlog.key
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Disable default plaintext Apache site
+      ansible.builtin.command:
+        argv:
+          - a2dissite
+          - 000-default.conf
+      register: _hamstack_cloudlog_disable_default
+      changed_when: "'Site 000-default disabled' in _hamstack_cloudlog_disable_default.stdout"
+      failed_when: false
+      notify: Restart Apache
+
+    - name: Render Cloudlog HTTPS virtual host
+      ansible.builtin.template:
+        src: cloudlog-vhost.conf.j2
+        dest: /etc/apache2/sites-available/hamstack-cloudlog.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart Apache
+
+    - name: Enable Cloudlog Apache site
+      ansible.builtin.command:
+        argv:
+          - a2ensite
+          - hamstack-cloudlog.conf
+      register: _hamstack_cloudlog_enable_site
+      changed_when: "'Enabling site hamstack-cloudlog' in _hamstack_cloudlog_enable_site.stdout"
+      notify: Restart Apache
+
+    - name: Ensure Apache is enabled and running
+      ansible.builtin.service:
+        name: apache2
+        enabled: "{{ hamstack_cloudlog_autostart | bool }}"
+        state: started

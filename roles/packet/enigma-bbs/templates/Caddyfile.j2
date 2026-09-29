@@ -1,0 +1,4 @@
+https://{{ hamstack_enigma_bbs_tls_host }} {
+    tls internal
+    reverse_proxy {{ hamstack_enigma_bbs_container_name }}:{{ hamstack_enigma_bbs_websocket_internal_port }}
+}

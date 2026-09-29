@@ -1,0 +1,292 @@
+---
+- name: Validate Graywolf API management inputs
+  ansible.builtin.assert:
+    that:
+      - hamstack_graywolf_api_url | length > 0
+      - hamstack_graywolf_username | length > 0
+      - hamstack_graywolf_password | length >= 8
+      - not (hamstack_graywolf_manage_station | bool) or hamstack_graywolf_callsign != 'N0CALL'
+    fail_msg: >-
+      Graywolf API management requires an API URL, username, password of at
+      least eight characters, and a real callsign when station management is
+      enabled. Put the password in vault_hamstack_graywolf_password.
+
+- name: Wait for Graywolf management API
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/health"
+    method: GET
+    # A configured Graywolf protects /health and returns 401 before login.
+    # Either response proves the HTTP API is up; authentication happens below
+    # after the first-run setup state has been checked/bootstrap completed.
+    status_code:
+      - 200
+      - 401
+  register: _hamstack_graywolf_health
+  retries: 15
+  delay: 2
+  until: _hamstack_graywolf_health.status in [200, 401]
+
+- name: Read Graywolf first-run setup state
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/auth/setup"
+    method: GET
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_setup_state
+
+- name: Refuse to claim an unconfigured Graywolf when first-user management is disabled
+  ansible.builtin.assert:
+    that:
+      - not (_hamstack_graywolf_setup_state.json.needs_setup | default(false) | bool)
+    fail_msg: >-
+      Graywolf has no management user yet. Create one manually or set
+      hamstack_graywolf_manage_first_user=true.
+  when: not (hamstack_graywolf_manage_first_user | bool)
+
+- name: Create Graywolf first-run management user
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/auth/setup"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ hamstack_graywolf_username }}"
+      password: "{{ hamstack_graywolf_password }}"
+    status_code: 201
+  no_log: true
+  when:
+    - hamstack_graywolf_manage_first_user | bool
+    - _hamstack_graywolf_setup_state.json.needs_setup | default(false) | bool
+
+- name: Log in to Graywolf management API
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/auth/login"
+    method: POST
+    body_format: json
+    body:
+      username: "{{ hamstack_graywolf_username }}"
+      password: "{{ hamstack_graywolf_password }}"
+    status_code: 200
+  register: _hamstack_graywolf_login
+  no_log: true
+
+- name: Verify Graywolf supplied a session cookie
+  ansible.builtin.assert:
+    that:
+      - _hamstack_graywolf_login.cookies_string | default('') | length > 0
+    fail_msg: "Graywolf login succeeded without returning a reusable session cookie."
+  no_log: true
+
+- name: Read Graywolf station configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/station/config"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_station_current
+  no_log: true
+  when: hamstack_graywolf_manage_station | bool
+
+- name: Configure Graywolf station callsign
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/station/config"
+    method: PUT
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body:
+      callsign: "{{ hamstack_graywolf_callsign }}"
+    status_code:
+      - 200
+      - 204
+  no_log: true
+  when:
+    - hamstack_graywolf_manage_station | bool
+    - (_hamstack_graywolf_station_current.json.callsign | default('')) != hamstack_graywolf_callsign
+
+- name: Read Graywolf audio-device configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/audio-devices"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_audio_current
+  no_log: true
+
+- name: Index current Graywolf audio devices by name
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_audio_by_name: >-
+      {{
+        (_hamstack_graywolf_audio_by_name | default({}))
+        | combine({item.name: item})
+      }}
+  loop: "{{ _hamstack_graywolf_audio_current.json | default([]) }}"
+  no_log: true
+
+- name: Converge Graywolf audio devices
+  ansible.builtin.include_tasks: manage-audio.yml
+  loop: "{{ hamstack_graywolf_audio_devices }}"
+  loop_control:
+    loop_var: _hamstack_graywolf_audio
+    label: "{{ _hamstack_graywolf_audio.name | default('unnamed') }}"
+
+- name: Re-read Graywolf audio-device configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/audio-devices"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_audio_current
+  no_log: true
+
+- name: Reset Graywolf audio-device index
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_audio_by_name: {}
+
+- name: Re-index Graywolf audio devices by name
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_audio_by_name: >-
+      {{ _hamstack_graywolf_audio_by_name | combine({item.name: item}) }}
+  loop: "{{ _hamstack_graywolf_audio_current.json | default([]) }}"
+  no_log: true
+
+- name: Read Graywolf channel configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/channels"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_channels_current
+  no_log: true
+
+- name: Index current Graywolf channels by name
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_channel_by_name: >-
+      {{
+        (_hamstack_graywolf_channel_by_name | default({}))
+        | combine({item.name: item})
+      }}
+  loop: "{{ _hamstack_graywolf_channels_current.json | default([]) }}"
+  no_log: true
+
+- name: Converge Graywolf channels
+  ansible.builtin.include_tasks: manage-channel.yml
+  loop: "{{ hamstack_graywolf_channels }}"
+  loop_control:
+    loop_var: _hamstack_graywolf_channel
+    label: "{{ _hamstack_graywolf_channel.name | default('unnamed') }}"
+
+- name: Re-read Graywolf channel configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/channels"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_channels_current
+  no_log: true
+
+- name: Reset Graywolf channel index
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_channel_by_name: {}
+
+- name: Re-index Graywolf channels by name
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_channel_by_name: >-
+      {{ _hamstack_graywolf_channel_by_name | combine({item.name: item}) }}
+  loop: "{{ _hamstack_graywolf_channels_current.json | default([]) }}"
+  no_log: true
+
+- name: Read Graywolf PTT configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/ptt"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_ptt_current
+  no_log: true
+
+- name: Index current Graywolf PTT configuration by channel
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_ptt_by_channel: >-
+      {{
+        (_hamstack_graywolf_ptt_by_channel | default({}))
+        | combine({(item.channel_id | string): item})
+      }}
+  loop: "{{ _hamstack_graywolf_ptt_current.json | default([]) }}"
+  no_log: true
+
+- name: Converge Graywolf PTT configuration
+  ansible.builtin.include_tasks: manage-ptt.yml
+  loop: "{{ hamstack_graywolf_channels | selectattr('ptt', 'defined') | list }}"
+  loop_control:
+    loop_var: _hamstack_graywolf_channel
+    label: "{{ _hamstack_graywolf_channel.name }}"
+
+- name: Read Graywolf KISS interfaces
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/kiss"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_kiss_current
+  no_log: true
+
+- name: Converge Graywolf KISS interfaces
+  ansible.builtin.include_tasks: manage-kiss.yml
+  loop: "{{ hamstack_graywolf_channels | selectattr('kiss', 'defined') | list }}"
+  loop_control:
+    loop_var: _hamstack_graywolf_channel
+    label: "{{ _hamstack_graywolf_channel.name }}"
+
+- name: Read Graywolf AGWPE configuration
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/agw"
+    method: GET
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    return_content: true
+    status_code: 200
+  register: _hamstack_graywolf_agw_current
+  no_log: true
+
+- name: Build desired Graywolf AGWPE configuration
+  ansible.builtin.set_fact:
+    _hamstack_graywolf_agw_desired:
+      listen_addr: >-
+        {{
+          (hamstack_graywolf_agw.listen_address | default('127.0.0.1'))
+          ~ ':' ~ (hamstack_graywolf_agw.port | default(8000) | string)
+        }}
+      callsigns: "{{ hamstack_graywolf_agw.callsigns | default(hamstack_graywolf_callsign) }}"
+      enabled: "{{ hamstack_graywolf_agw.enabled | default(false) | bool }}"
+  no_log: true
+
+- name: Configure Graywolf AGWPE listener
+  ansible.builtin.uri:
+    url: "{{ hamstack_graywolf_api_url }}/agw"
+    method: PUT
+    headers:
+      Cookie: "{{ _hamstack_graywolf_login.cookies_string }}"
+    body_format: json
+    body: "{{ _hamstack_graywolf_agw_desired }}"
+    status_code:
+      - 200
+      - 204
+  no_log: true
+  when: >-
+    (_hamstack_graywolf_agw_current.json.listen_addr | default('')) != _hamstack_graywolf_agw_desired.listen_addr
+    or (_hamstack_graywolf_agw_current.json.callsigns | default('')) != _hamstack_graywolf_agw_desired.callsigns
+    or (_hamstack_graywolf_agw_current.json.enabled | default(false) | bool) != (_hamstack_graywolf_agw_desired.enabled | bool)

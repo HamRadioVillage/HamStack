@@ -1,0 +1,12 @@
+---
+hamstack_multimon_ng_enabled: false
+hamstack_multimon_ng_install: true
+hamstack_multimon_ng_decoders:
+  - POCSAG512
+  - POCSAG1200
+  - POCSAG2400
+hamstack_multimon_ng_input_type: raw
+hamstack_multimon_ng_source_command: ''
+hamstack_multimon_ng_service_enabled: false
+hamstack_multimon_ng_output_file: "{{ (hamstack_log_dir | default('/var/log/hamstack')) ~ '/multimon-ng.log' }}"
+hamstack_multimon_ng_extra_args: []

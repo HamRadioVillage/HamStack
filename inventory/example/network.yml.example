@@ -1,0 +1,20 @@
+---
+all:
+  children:
+    network_devices:
+      hosts:
+        example-openwrt:
+          # TEST-NET address. Replace with the real management address.
+          ansible_host: 192.0.2.20
+          ansible_user: root
+          hamstack_network_platform: openwrt
+          hamstack_network_vendor: glinet
+          hamstack_network_model: example
+
+        example-routeros:
+          ansible_host: 192.0.2.21
+          ansible_user: hamstack
+          # Store ansible_password or vault_hamstack_routeros_password in Vault.
+          hamstack_network_platform: routeros
+          hamstack_network_vendor: mikrotik
+          hamstack_network_model: hAP ac lite

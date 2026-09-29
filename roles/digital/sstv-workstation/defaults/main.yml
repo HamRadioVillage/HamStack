@@ -1,0 +1,18 @@
+---
+# Public configuration defaults for the sstv-workstation HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_sstv_workstation_enabled: false
+hamstack_sstv_workstation_install: true
+hamstack_sstv_workstation_backend: qsstv
+hamstack_sstv_workstation_user: '{{ hamstack_operator_user | default('''') }}'
+hamstack_sstv_workstation_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
+hamstack_sstv_workstation_radio: ''
+hamstack_sstv_workstation_interface: ''
+hamstack_sstv_workstation_receive_enabled: true
+hamstack_sstv_workstation_transmit_enabled: false
+hamstack_sstv_workstation_receive_frequency_mhz: null
+hamstack_sstv_workstation_transmit_frequency_mhz: null
+hamstack_sstv_workstation_default_mode: ''
+hamstack_sstv_workstation_image_dir: '{{ (hamstack_data_dir | default(''/var/lib/hamstack'')) ~ ''/sstv-workstation'' }}'
+hamstack_sstv_workstation_autostart: true
+hamstack_sstv_workstation_extra_settings: {}

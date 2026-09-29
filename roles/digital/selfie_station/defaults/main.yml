@@ -1,0 +1,31 @@
+---
+# Public configuration defaults for the selfie_station HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_selfie_station_enabled: false
+hamstack_selfie_station_user: hamstack
+hamstack_selfie_station_install_dir: /opt/hamstack/selfie_station
+hamstack_selfie_station_venv_dir: /opt/hamstack/selfie_station/venv
+hamstack_selfie_station_data_dir: '{{ (hamstack_data_dir | default(''/var/lib/hamstack'')) ~ ''/selfie_station'' }}'
+hamstack_selfie_station_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
+hamstack_selfie_station_event_name: '{{ hamstack_event_name | default('''') }}'
+hamstack_selfie_station_camera_device: ''
+hamstack_selfie_station_trigger_device: ''
+hamstack_selfie_station_radio: ''
+hamstack_selfie_station_interface: ''
+hamstack_selfie_station_overlay_template: de {{ hamstack_callsign | default('N0CALL') }}
+hamstack_selfie_station_image_dir: '{{ (hamstack_data_dir | default(''/var/lib/hamstack'')) ~ ''/selfie_station'' }}'
+hamstack_selfie_station_transmit_enabled: false
+hamstack_selfie_station_sstv_mode: ''
+hamstack_selfie_station_sstv_target: local
+hamstack_selfie_station_autostart: true
+hamstack_selfie_station_extra_settings: {}
+hamstack_selfie_station_sample_rate: 48000
+hamstack_selfie_station_cw_enabled: true
+hamstack_selfie_station_cw_wpm: 15
+hamstack_selfie_station_cw_tone_hz: 700.0
+hamstack_selfie_station_ptt_lead_seconds: 0.30
+hamstack_selfie_station_ptt_tail_seconds: 0.20
+hamstack_selfie_station_trigger_key: KEY_B
+hamstack_selfie_station_trigger_fallback_device: /dev/input/by-id/usb-PCsensor_FootSwitch-event-kbd
+hamstack_selfie_station_camera_width: 1640
+hamstack_selfie_station_camera_height: 1232

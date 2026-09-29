@@ -1,0 +1,14 @@
+---
+# Public configuration defaults for the flrig HamStack role.
+# See docs/configuration.md for the configuration contract.
+hamstack_flrig_enabled: false
+hamstack_flrig_install: true
+hamstack_flrig_radio: ''
+hamstack_flrig_interface: ''
+hamstack_flrig_rig_model: ''
+hamstack_flrig_serial_baud: null
+hamstack_flrig_xmlrpc_bind: 127.0.0.1
+hamstack_flrig_xmlrpc_port: null
+hamstack_flrig_autostart: false
+hamstack_flrig_config_dir: ''
+hamstack_flrig_extra_settings: {}

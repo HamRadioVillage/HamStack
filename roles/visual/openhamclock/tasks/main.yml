@@ -1,0 +1,89 @@
+---
+- name: Deploy OpenHamClock HTTPS LAN service
+  when: hamstack_openhamclock_enabled | bool
+  block:
+    - name: Install HamStack container runtime
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: container-runtime
+
+    - name: Build OpenHamClock container environment
+      ansible.builtin.set_fact:
+        _hamstack_openhamclock_environment: >-
+          {{
+            {
+              'CALLSIGN': hamstack_openhamclock_callsign,
+              'LOCATOR': hamstack_openhamclock_grid_locator,
+              'TZ': hamstack_timezone | default('Etc/UTC'),
+              'HOST': '0.0.0.0',
+              'PORT': '3000',
+              'TRUST_PROXY': 'true',
+              'SETTINGS_SYNC': 'true',
+              'SETTINGS_FILE': '/data/settings.json'
+            }
+            | combine(
+                {'LATITUDE': hamstack_openhamclock_latitude | string}
+                if hamstack_openhamclock_latitude is not none
+                else {}
+              )
+            | combine(
+                {'LONGITUDE': hamstack_openhamclock_longitude | string}
+                if hamstack_openhamclock_longitude is not none
+                else {}
+              )
+            | combine(hamstack_openhamclock_environment)
+          }}
+
+    - name: Create OpenHamClock directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_openhamclock_data_dir }}"
+        - "{{ hamstack_openhamclock_data_dir }}/app-data"
+        - "{{ hamstack_openhamclock_data_dir }}/caddy-data"
+        - "{{ hamstack_openhamclock_data_dir }}/caddy-config"
+
+    - name: Render OpenHamClock Caddy configuration
+      ansible.builtin.template:
+        src: Caddyfile.j2
+        dest: "{{ hamstack_openhamclock_data_dir }}/Caddyfile"
+        owner: root
+        group: root
+        mode: "0644"
+      register: _hamstack_openhamclock_caddy
+
+    - name: Create OpenHamClock private Docker network
+      community.docker.docker_network:
+        name: hamstack-openhamclock
+
+    - name: Run OpenHamClock application container
+      community.docker.docker_container:
+        name: "{{ hamstack_openhamclock_container_name }}"
+        image: "{{ hamstack_openhamclock_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_openhamclock_autostart | bool else 'no' }}"
+        networks:
+          - name: hamstack-openhamclock
+        env: "{{ _hamstack_openhamclock_environment }}"
+        volumes:
+          - "{{ hamstack_openhamclock_data_dir }}/app-data:/data"
+
+    - name: Run OpenHamClock HTTPS sidecar
+      community.docker.docker_container:
+        name: hamstack-openhamclock-caddy
+        image: "{{ hamstack_openhamclock_caddy_image }}"
+        state: started
+        restart_policy: "{{ 'unless-stopped' if hamstack_openhamclock_autostart | bool else 'no' }}"
+        recreate: "{{ _hamstack_openhamclock_caddy.changed }}"
+        networks:
+          - name: hamstack-openhamclock
+        published_ports:
+          - "{{ hamstack_openhamclock_https_bind }}:{{ hamstack_openhamclock_https_port }}:443"
+        volumes:
+          - "{{ hamstack_openhamclock_data_dir }}/Caddyfile:/etc/caddy/Caddyfile:ro"
+          - "{{ hamstack_openhamclock_data_dir }}/caddy-data:/data"
+          - "{{ hamstack_openhamclock_data_dir }}/caddy-config:/config"

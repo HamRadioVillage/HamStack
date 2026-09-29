@@ -1,0 +1,19 @@
+---
+- name: Restart AllStar Asterisk
+  ansible.builtin.service:
+    name: "{{ hamstack_allstar_service }}"
+    state: restarted
+  when: hamstack_allstar_restart_on_change | bool
+
+- name: Restart Allmon3
+  ansible.builtin.service:
+    name: "{{ hamstack_allstar_allmon3_service }}"
+    state: restarted
+
+- name: Apply SA818 configuration
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/sa818-menu
+      - --apply
+  changed_when: true
+  when: hamstack_allstar_sa818_apply | bool

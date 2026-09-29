@@ -1,0 +1,8 @@
+[Unit]
+Description=Poll configured AREDN nodes for HamStack status
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/hamstack-aredn-poll

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+sink_name={{ hamstack_sstv_rx_pulse_sink | quote }}
+
+# Desktop audio may still be starting when XDG autostart launches us.
+for _ in $(seq 1 20); do
+  if pactl info >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.5
+done
+
+if ! pactl info >/dev/null 2>&1; then
+  echo "HamStack SSTV RX: PulseAudio/PipeWire-Pulse is not available" >&2
+  exit 1
+fi
+
+if ! pactl list short sinks | awk '{print $2}' | grep -Fxq "$sink_name"; then
+  pactl load-module module-null-sink \
+    sink_name="$sink_name" \
+    sink_properties="device.description=HamStack_SSTV_RX" >/dev/null
+fi

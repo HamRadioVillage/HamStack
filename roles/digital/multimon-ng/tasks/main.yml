@@ -1,0 +1,56 @@
+---
+- name: Configure multimon-ng decoder capability
+  when: hamstack_multimon_ng_enabled | bool
+  block:
+    - name: Validate multimon-ng platform
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - not hamstack_multimon_ng_service_enabled | bool or hamstack_multimon_ng_source_command | length > 0
+        fail_msg: >-
+          multimon-ng currently supports Debian-family hosts. A managed service
+          additionally requires hamstack_multimon_ng_source_command so HamStack
+          knows where decoder audio/data comes from.
+
+    - name: Install multimon-ng
+      ansible.builtin.apt:
+        name: multimon-ng
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+      when: hamstack_multimon_ng_install | bool
+
+    - name: Install HamStack multimon-ng wrapper
+      ansible.builtin.template:
+        src: hamstack-multimon-ng.sh.j2
+        dest: /usr/local/bin/hamstack-multimon-ng
+        owner: root
+        group: root
+        mode: '0755'
+      notify: Restart HamStack multimon-ng
+
+    - name: Ensure multimon-ng log directory exists
+      ansible.builtin.file:
+        path: "{{ hamstack_multimon_ng_output_file | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Install multimon-ng systemd service
+      ansible.builtin.template:
+        src: hamstack-multimon-ng.service.j2
+        dest: /etc/systemd/system/hamstack-multimon-ng.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify:
+        - Reload systemd for multimon-ng
+        - Restart HamStack multimon-ng
+
+    - name: Set multimon-ng service state
+      ansible.builtin.systemd:
+        name: hamstack-multimon-ng
+        enabled: "{{ hamstack_multimon_ng_service_enabled | bool }}"
+        state: "{{ 'started' if hamstack_multimon_ng_service_enabled | bool else 'stopped' }}"
+        daemon_reload: true

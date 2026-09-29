@@ -1,0 +1,33 @@
+{
+  general: {
+    boardName: {{ hamstack_enigma_bbs_system_name | to_json }}
+    prettyBoardName: {{ hamstack_enigma_bbs_system_name | to_json }}
+    telnetHostname: {{ (hamstack_enigma_bbs_tls_host ~ ':' ~ (hamstack_enigma_bbs_telnet_port | string)) | to_json }}
+    sshHostname: {{ (hamstack_enigma_bbs_tls_host ~ ':' ~ (hamstack_enigma_bbs_ssh_port | string)) | to_json }}
+    website: {{ ('https://' ~ hamstack_enigma_bbs_tls_host ~ ':' ~ (hamstack_enigma_bbs_https_port | string)) | to_json }}
+    description: {{ hamstack_enigma_bbs_description | to_json }}
+  }
+
+  loginServers: {
+    telnet: {
+      enabled: true
+      port: {{ hamstack_enigma_bbs_telnet_port }}
+    }
+    ssh: {
+      enabled: true
+      port: {{ hamstack_enigma_bbs_ssh_port }}
+      privateKeyPem: "/enigma-bbs/config/security/hamstack_ssh_private_key.pem"
+      privateKeyPass: ""
+    }
+    webSocket: {
+      proxied: true
+      ws: {
+        enabled: true
+        port: {{ hamstack_enigma_bbs_websocket_internal_port }}
+      }
+      wss: {
+        enabled: false
+      }
+    }
+  }
+}

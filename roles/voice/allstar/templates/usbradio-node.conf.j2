@@ -1,0 +1,4 @@
+[{{ hamstack_allstar_node_number }}](node-main)
+{% for key, value in hamstack_allstar_usbradio_settings | dictsort %}
+{{ key }} = {{ value }}
+{% endfor %}

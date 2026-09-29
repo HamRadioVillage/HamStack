@@ -1,0 +1,15 @@
+; Managed by HamStack. Manual records may coexist in Technitium.
+$ORIGIN {{ hamstack_technitium_dns_default_zone }}.
+$TTL {{ hamstack_technitium_dns_default_ttl }}
+
+{% for record in _hamstack_technitium_dns_managed_records | default([]) %}
+{%- set raw_name = record.name | string -%}
+{%- if raw_name.endswith('.') -%}
+{%- set rendered_name = raw_name -%}
+{%- elif raw_name == hamstack_technitium_dns_default_zone or raw_name.endswith('.' ~ hamstack_technitium_dns_default_zone) -%}
+{%- set rendered_name = raw_name ~ '.' -%}
+{%- else -%}
+{%- set rendered_name = raw_name -%}
+{%- endif %}
+{{ rendered_name }} {{ record.ttl | default(hamstack_technitium_dns_default_ttl) }} IN {{ record.type | upper }} {{ record.value }}
+{% endfor %}

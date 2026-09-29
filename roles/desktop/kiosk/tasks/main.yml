@@ -1,0 +1,71 @@
+---
+- name: Configure HamStack kiosk workstation
+  when: hamstack_kiosk_enabled | bool
+  block:
+    - name: Validate kiosk platform and account
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['os_family'] == 'Debian'
+          - hamstack_kiosk_user | length > 0
+          - hamstack_kiosk_rotation in ['normal', 'left', 'right', 'inverted']
+        fail_msg: >-
+          Kiosk currently supports Debian-family desktops and requires a valid
+          kiosk user and rotation value.
+
+    - name: Install kiosk packages
+      ansible.builtin.apt:
+        name: >-
+          {{ [hamstack_kiosk_browser_package, 'x11-xserver-utils', 'unclutter']
+             + hamstack_kiosk_extra_packages }}
+        state: present
+        update_cache: true
+        cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
+
+    - name: Read kiosk account
+      ansible.builtin.getent:
+        database: passwd
+        key: "{{ hamstack_kiosk_user }}"
+
+    - name: Read kiosk account primary group
+      ansible.builtin.command:
+        cmd: "id -gn {{ hamstack_kiosk_user }}"
+      register: _hamstack_kiosk_group
+      changed_when: false
+
+    - name: Remember kiosk home directory
+      ansible.builtin.set_fact:
+        _hamstack_kiosk_home: "{{ ansible_facts.getent_passwd[hamstack_kiosk_user][4] }}"
+
+    - name: Create kiosk user directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ hamstack_kiosk_user }}"
+        group: "{{ _hamstack_kiosk_group.stdout }}"
+        mode: '0755'
+      loop:
+        - "{{ _hamstack_kiosk_home }}/.local/bin"
+        - "{{ _hamstack_kiosk_home }}/.config/autostart"
+
+    - name: Install kiosk launcher
+      ansible.builtin.template:
+        src: hamstack-kiosk.sh.j2
+        dest: "{{ _hamstack_kiosk_home }}/.local/bin/hamstack-kiosk"
+        owner: "{{ hamstack_kiosk_user }}"
+        group: "{{ _hamstack_kiosk_group.stdout }}"
+        mode: '0755'
+
+    - name: Configure kiosk XDG autostart
+      ansible.builtin.template:
+        src: hamstack-kiosk.desktop.j2
+        dest: "{{ _hamstack_kiosk_home }}/.config/autostart/hamstack-kiosk.desktop"
+        owner: "{{ hamstack_kiosk_user }}"
+        group: "{{ _hamstack_kiosk_group.stdout }}"
+        mode: '0644'
+      when: hamstack_kiosk_autostart | bool
+
+    - name: Remove kiosk XDG autostart when disabled
+      ansible.builtin.file:
+        path: "{{ _hamstack_kiosk_home }}/.config/autostart/hamstack-kiosk.desktop"
+        state: absent
+      when: not hamstack_kiosk_autostart | bool

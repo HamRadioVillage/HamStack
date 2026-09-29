@@ -1,0 +1,78 @@
+---
+# HamStack configures an already-imaged WPSD system. It does not download,
+# flash, or maintain the WPSD disk image.
+hamstack_wpsd_enabled: false
+
+hamstack_wpsd_callsign: "{{ hamstack_callsign | default('N0CALL') }}"
+hamstack_wpsd_dmr_id: null
+hamstack_wpsd_nxdn_id: null
+hamstack_wpsd_hotspot_name: "{{ inventory_hostname }}"
+hamstack_wpsd_grid_locator: "{{ hamstack_grid_locator | default('') }}"
+hamstack_wpsd_latitude: "{{ hamstack_latitude | default(none) }}"
+hamstack_wpsd_longitude: "{{ hamstack_longitude | default(none) }}"
+hamstack_wpsd_location: "{{ hamstack_wpsd_grid_locator }}"
+hamstack_wpsd_description: "HamStack managed WPSD node"
+hamstack_wpsd_url: ""
+
+# Simplex is the common hotspot default. Duplex nodes can provide separate
+# RX/TX frequencies.
+hamstack_wpsd_duplex: false
+hamstack_wpsd_frequency_mhz: null
+hamstack_wpsd_rx_frequency_mhz: "{{ hamstack_wpsd_frequency_mhz }}"
+hamstack_wpsd_tx_frequency_mhz: "{{ hamstack_wpsd_frequency_mhz }}"
+
+# Use the exact WPSD modem identifier for the attached board. The public WPSD
+# manual recommends `sudo wpsd-detectmodem` to identify it.
+hamstack_wpsd_modem: ""
+hamstack_wpsd_interface: ""
+
+# Optional MMDVMHost display management. WPSD OLED Type 3 is the common
+# 0.96-inch display; Type 6 is the 1.3-inch display and does not scroll.
+hamstack_wpsd_display: none
+hamstack_wpsd_oled_type: 3
+hamstack_wpsd_oled_screensaver: true
+hamstack_wpsd_oled_scroll: false
+hamstack_wpsd_oled_rotate: false
+hamstack_wpsd_oled_invert: false
+hamstack_wpsd_oled_brightness: 0
+hamstack_wpsd_oled_cast: false
+hamstack_wpsd_rx_offset_hz: null
+hamstack_wpsd_tx_offset_hz: null
+
+# Managed radio modes.
+hamstack_wpsd_modes: []
+hamstack_wpsd_manage_modes: true
+
+# Optional DMRGateway custom-master management. This is intentionally opt-in so
+# ordinary WPSD installs keep using the dashboard/profile workflow unchanged.
+# URFd speaks the MMDVM/Homebrew protocol on UDP/62030.
+hamstack_wpsd_manage_dmr_custom_network: false
+hamstack_wpsd_dmrgateway_config_path: /etc/dmrgateway
+hamstack_wpsd_dmr_custom_network_name: ""
+hamstack_wpsd_dmr_custom_network_address: ""
+hamstack_wpsd_dmr_custom_network_port: 62030
+hamstack_wpsd_dmr_custom_network_id: "{{ hamstack_wpsd_dmr_id }}"
+hamstack_wpsd_dmr_custom_network_location: false
+hamstack_wpsd_dmr_custom_network_auto_rewrites: false
+hamstack_wpsd_dmr_custom_network_exclusive: true
+hamstack_wpsd_dmr_custom_network_options: ""
+
+# Rules are written verbatim into [DMR Network Custom]. Keeping these explicit
+# avoids WPSD's alternate-network prefix scheme when the target master already
+# uses the talkgroup numbers we want on RF. Example for HRV: TG 4001 on TS2.
+hamstack_wpsd_dmr_custom_network_rules: []
+
+# Native WPSD files used by the upstream software.
+hamstack_wpsd_config_path: /etc/mmdvmhost
+hamstack_wpsd_modem_config_path: /etc/dstar-radio.mmdvmhost
+hamstack_wpsd_dashboard_config_path: /etc/WPSD-Dashboard-Config.ini
+
+hamstack_wpsd_timezone: "{{ hamstack_timezone | default('UTC') }}"
+hamstack_wpsd_dashboard_language: ""
+
+# Escape hatches for settings that are stable/understood but not first-class.
+# mmdvmhost entries are a list of {section, option, value} dictionaries.
+hamstack_wpsd_mmdvmhost_extra: []
+hamstack_wpsd_dashboard_extra_settings: {}
+
+hamstack_wpsd_restart_on_change: true

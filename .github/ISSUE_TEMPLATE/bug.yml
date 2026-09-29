@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible HamStack deployment or role problem
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing HamStack. Please include enough environment and hardware detail for someone else to reproduce the failure.
+  - type: input
+    id: role
+    attributes:
+      label: Role or capability
+      description: "Example: voice/wpsd, packet/graywolf, profile/hamcube"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Hardware and OS/appliance
+      description: Include model/architecture and OS or upstream appliance version.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the relevant Ansible task/error output with secrets redacted.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include the playbook/profile and relevant non-secret variables.
+    validations:
+      required: true
+  - type: dropdown
+    id: second_run
+    attributes:
+      label: What happened on a second Ansible run?
+      options:
+        - Not tested
+        - Clean / no unexpected changes
+        - Repeated unexpected changes
+        - Fails before a second run completes
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: Radio/interface hardware, logs, screenshots, or related upstream behavior. Do not include credentials.

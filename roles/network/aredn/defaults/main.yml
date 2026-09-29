@@ -1,0 +1,11 @@
+---
+hamstack_aredn_enabled: false
+hamstack_aredn_nodes: []
+hamstack_aredn_poll_enabled: true
+hamstack_aredn_poll_interval: 2min
+hamstack_aredn_cache_dir: "{{ (hamstack_cache_dir | default('/var/cache/hamstack')) ~ '/aredn' }}"
+hamstack_aredn_include_link_info: true
+hamstack_aredn_include_services: true
+hamstack_aredn_include_lqm: false
+hamstack_aredn_gatus_enabled: true
+hamstack_aredn_request_timeout: 10

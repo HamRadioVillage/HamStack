@@ -1,0 +1,174 @@
+---
+- name: Validate AllStar role inputs
+  ansible.builtin.assert:
+    that:
+      - hamstack_allstar_node_number is not none
+      - (hamstack_allstar_node_number | string | length) >= 4
+      - hamstack_allstar_callsign | string | length > 0
+      - hamstack_allstar_callsign != 'N0CALL'
+      - hamstack_allstar_channel_driver in ['simpleusb', 'usbradio', 'hub']
+      - hamstack_allstar_duplex is not none
+      - (hamstack_allstar_duplex | int) in [0, 1, 2, 3, 4]
+      - not hamstack_allstar_register | bool or
+        (vault_hamstack_allstar_node_password | default('') | string | length > 0)
+    fail_msg: >-
+      AllStar requires a real callsign, node number, duplex mode, and a
+      supported channel driver. Public registration additionally requires
+      vault_hamstack_allstar_node_password.
+
+- name: Validate SA818 role inputs
+  ansible.builtin.assert:
+    that:
+      - hamstack_allstar_sa818_rx_frequency is not none
+      - hamstack_allstar_sa818_tx_frequency is not none
+      - hamstack_allstar_sa818_band in ['VHF', 'UHF']
+      - hamstack_allstar_sa818_bandwidth in ['Narrow', 'Wide']
+      - (hamstack_allstar_sa818_squelch | int) >= 0
+      - (hamstack_allstar_sa818_squelch | int) <= 8
+      - (hamstack_allstar_sa818_volume | int) >= 1
+      - (hamstack_allstar_sa818_volume | int) <= 8
+      - hamstack_allstar_sa818_tone in ['None', 'CTCSS', 'DCS']
+      - hamstack_allstar_sa818_tail_tone in ['Opened', 'Closed']
+      - hamstack_allstar_sa818_emphasis in ['Enabled', 'Disabled']
+      - hamstack_allstar_sa818_high_pass in ['Enabled', 'Disabled']
+      - hamstack_allstar_sa818_low_pass in ['Enabled', 'Disabled']
+    fail_msg: >-
+      SA818 configuration requires RX/TX frequencies and values compatible
+      with the upstream sa818-menu saved configuration.
+  when: hamstack_allstar_sa818_enabled | bool
+
+- name: Verify ASL3 is already installed
+  ansible.builtin.stat:
+    path: "{{ hamstack_allstar_config_dir }}/rpt.conf"
+  register: hamstack_allstar_rpt_conf
+
+- name: Refuse to turn HamStack into an ASL image installer
+  ansible.builtin.assert:
+    that:
+      - hamstack_allstar_rpt_conf.stat.exists
+    fail_msg: >-
+      {{ hamstack_allstar_config_dir }}/rpt.conf was not found. Install or
+      image a supported AllStarLink/ASL3 system first; HamStack begins after
+      the upstream appliance is reachable over SSH.
+
+- name: Ensure ASL3 custom include directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ hamstack_allstar_config_owner }}"
+    group: "{{ hamstack_allstar_config_group }}"
+    mode: '0755'
+  loop:
+    - "{{ hamstack_allstar_config_dir }}/custom"
+    - "{{ hamstack_allstar_config_dir }}/custom/rpt"
+    - "{{ hamstack_allstar_config_dir }}/custom/simpleusb"
+    - "{{ hamstack_allstar_config_dir }}/custom/usbradio"
+
+- name: Render HamStack-managed ASL3 configuration
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ hamstack_allstar_config_dir }}/{{ item.dest }}"
+    owner: "{{ hamstack_allstar_config_owner }}"
+    group: "{{ hamstack_allstar_config_group }}"
+    mode: '0644'
+    backup: true
+  loop:
+    - { src: modules.conf.j2, dest: modules.conf }
+    - { src: extensions.conf.j2, dest: extensions.conf }
+    - { src: rpt.conf.j2, dest: rpt.conf }
+    - { src: simpleusb.conf.j2, dest: simpleusb.conf }
+    - { src: usbradio.conf.j2, dest: usbradio.conf }
+  loop_control:
+    label: "{{ item.dest }}"
+  notify: Restart AllStar Asterisk
+
+- name: Render HamStack-managed AllStar registration configuration
+  ansible.builtin.template:
+    src: rpt_http_registrations.conf.j2
+    dest: "{{ hamstack_allstar_config_dir }}/rpt_http_registrations.conf"
+    owner: "{{ hamstack_allstar_config_owner }}"
+    group: "{{ hamstack_allstar_config_group }}"
+    mode: '0640'
+    backup: true
+  no_log: true
+  diff: false
+  notify: Restart AllStar Asterisk
+
+- name: Check for Allmon3 configuration
+  ansible.builtin.stat:
+    path: "{{ hamstack_allstar_allmon3_config }}"
+  register: _hamstack_allstar_allmon3_stat
+  when: hamstack_allstar_allmon3_manage | bool
+
+- name: Read Allmon3 configuration
+  ansible.builtin.slurp:
+    path: "{{ hamstack_allstar_allmon3_config }}"
+  register: _hamstack_allstar_allmon3
+  when:
+    - hamstack_allstar_allmon3_manage | bool
+    - _hamstack_allstar_allmon3_stat.stat.exists
+  no_log: true
+
+- name: Select stock Allmon3 node section to adopt
+  ansible.builtin.set_fact:
+    _hamstack_allstar_allmon3_source_node: >-
+      {% set text = _hamstack_allstar_allmon3.content | b64decode %}
+      {% set target = hamstack_allstar_node_number | string %}
+      {% set stock = hamstack_allstar_default_node_number | string %}
+      {% if ('[' ~ target ~ ']') in text %}
+      {{ '' }}
+      {% elif ('[' ~ stock ~ ']') in text %}
+      {{ stock }}
+      {% else %}
+      {{ '' }}
+      {% endif %}
+  when:
+    - hamstack_allstar_allmon3_manage | bool
+    - _hamstack_allstar_allmon3_stat.stat.exists
+  no_log: true
+
+- name: Repoint stock Allmon3 node section to HamStack node
+  ansible.builtin.replace:
+    path: "{{ hamstack_allstar_allmon3_config }}"
+    regexp: '(?m)^\[{{ _hamstack_allstar_allmon3_source_node | trim }}\][ \t]*$'
+    replace: '[{{ hamstack_allstar_node_number }}]'
+    backup: true
+  when:
+    - hamstack_allstar_allmon3_manage | bool
+    - _hamstack_allstar_allmon3_stat.stat.exists
+    - (_hamstack_allstar_allmon3_source_node | default('') | trim | length) > 0
+  no_log: true
+  notify: Restart Allmon3
+
+- name: Check for upstream SA818 utility
+  ansible.builtin.stat:
+    path: /usr/bin/sa818-menu
+  register: _hamstack_allstar_sa818_menu
+  when: hamstack_allstar_sa818_enabled | bool
+
+- name: Require upstream SA818 utility when SA818 management is enabled
+  ansible.builtin.assert:
+    that:
+      - _hamstack_allstar_sa818_menu.stat.exists
+      - _hamstack_allstar_sa818_menu.stat.executable
+    fail_msg: >-
+      hamstack_allstar_sa818_enabled is true but /usr/bin/sa818-menu is not
+      available. Install/use an ASL3 build that provides the SA818 utility.
+  when: hamstack_allstar_sa818_enabled | bool
+
+- name: Configure saved SA818 menu settings
+  ansible.builtin.template:
+    src: sa818.conf.j2
+    dest: "{{ hamstack_allstar_sa818_config }}"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  when: hamstack_allstar_sa818_enabled | bool
+  notify: Apply SA818 configuration
+
+- name: Ensure AllStar Asterisk is enabled and running
+  ansible.builtin.service:
+    name: "{{ hamstack_allstar_service }}"
+    enabled: "{{ hamstack_allstar_autostart | bool }}"
+    state: started

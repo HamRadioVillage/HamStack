@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+CACHE={{ hamstack_aredn_cache_dir | quote }}
+mkdir -p "$CACHE"
+{% for node in hamstack_aredn_nodes %}
+NAME={{ node.name | quote }}
+{% if node.url is defined and node.url | length > 0 %}BASE={{ node.url | quote }}{% else %}BASE={{ ('http://' ~ node.host) | quote }}{% endif %}
+QUERY=""
+{% set params = [] %}
+{% if node.link_info | default(hamstack_aredn_include_link_info) %}{% set _ = params.append('link_info=1') %}{% endif %}
+{% if node.services | default(hamstack_aredn_include_services) %}{% set _ = params.append('services=1') %}{% endif %}
+{% if node.lqm | default(hamstack_aredn_include_lqm) %}{% set _ = params.append('lqm=1') %}{% endif %}
+{% if params | length > 0 %}
+QUERY="?{{ params | join('&') }}"
+{% endif %}
+TMP="$CACHE/$NAME.json.new"
+if curl --fail --silent --show-error --max-time {{ hamstack_aredn_request_timeout }} "$BASE/a/sysinfo$QUERY" -o "$TMP"; then
+  jq -e '.api_version and .node' "$TMP" >/dev/null
+  mv "$TMP" "$CACHE/$NAME.json"
+  date -u +%Y-%m-%dT%H:%M:%SZ > "$CACHE/$NAME.last-success"
+else
+  rm -f "$TMP"
+fi
+{% endfor %}

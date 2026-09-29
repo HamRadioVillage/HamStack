@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+BASE={{ hamstack_conham_data_dir | quote }}
+SOURCE={{ hamstack_conham_source_url | quote }}
+STAGE="$BASE/staging.$$.tmp"
+TARGET="$BASE/releases/$(date +%Y%m%d%H%M%S)"
+mkdir -p "$BASE/releases"
+rm -rf "$STAGE"
+mkdir -p "$STAGE"
+trap 'rm -rf "$STAGE"' EXIT
+
+# Mirror the rendered site rather than depending on WAN at display time.
+wget --quiet --mirror --convert-links --adjust-extension --page-requisites \
+  --no-parent --directory-prefix="$STAGE" "$SOURCE"
+
+HOSTDIR=$(find "$STAGE" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+[ -n "$HOSTDIR" ]
+[ -f "$HOSTDIR/index.html" ]
+mv "$HOSTDIR" "$TARGET"
+ln -sfn "releases/$(basename "$TARGET")" "$BASE/current.new"
+mv -Tf "$BASE/current.new" "$BASE/current"
+# Keep the five newest successful mirrors.
+ls -1dt "$BASE"/releases/* 2>/dev/null | tail -n +6 | xargs -r rm -rf

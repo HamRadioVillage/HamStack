@@ -1,0 +1,7 @@
+---
+collections:
+  - name: community.general
+  - name: community.docker
+  - name: ansible.mysql
+  - name: community.routeros
+  - name: ansible.netcommon

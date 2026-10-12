@@ -87,8 +87,10 @@
       ansible.builtin.assert:
         that:
           - _hamstack_graywolf_download_url | length > 0
+          - _hamstack_graywolf_download_url is match('^https://')
+          - hamstack_graywolf_package_checksum | length == 0 or hamstack_graywolf_package_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
-          Could not locate the expected Graywolf Debian package
+          Could not locate an HTTPS URL for the expected Graywolf Debian package
           {{ _hamstack_graywolf_asset_name | default('for this architecture') }}.
           Available release assets: {{
             _hamstack_graywolf_release.json.assets
@@ -97,7 +99,9 @@
             | list
             | join(', ')
           }}. Pin hamstack_graywolf_package_url to a compatible .deb if the
-          upstream asset naming changes.
+          upstream asset naming changes. Optional
+          hamstack_graywolf_package_checksum values must use
+          sha256:<64-hex-digest>.
       when: hamstack_graywolf_install | bool
 
     - name: Create HamStack package cache
@@ -113,6 +117,9 @@
       ansible.builtin.get_url:
         url: "{{ _hamstack_graywolf_download_url }}"
         dest: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/graywolf.deb"
+        checksum: "{{ hamstack_graywolf_package_checksum if hamstack_graywolf_package_checksum | length > 0 else omit }}"
+        owner: root
+        group: root
         mode: "0644"
       when: hamstack_graywolf_install | bool
 

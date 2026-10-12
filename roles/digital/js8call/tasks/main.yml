@@ -19,7 +19,7 @@
 
     - name: Read JS8Call operator primary group
       ansible.builtin.command:
-        cmd: "id -gn {{ hamstack_js8call_user }}"
+        cmd: "id -gn {{ hamstack_js8call_user | quote }}"
       register: _hamstack_js8call_group
       changed_when: false
 
@@ -29,6 +29,21 @@
         _hamstack_js8call_url: >-
           {{ hamstack_js8call_x86_64_url if ansible_facts['architecture'] == 'x86_64'
              else hamstack_js8call_aarch64_url }}
+        _hamstack_js8call_checksum: >-
+          {{ hamstack_js8call_x86_64_checksum if ansible_facts['architecture'] == 'x86_64'
+             else hamstack_js8call_aarch64_checksum }}
+
+    - name: Validate JS8Call download source
+      ansible.builtin.assert:
+        that:
+          - _hamstack_js8call_url | trim is match('^https://')
+          - not (hamstack_js8call_require_checksum | bool) or _hamstack_js8call_checksum | trim is match('^sha256:[0-9A-Fa-f]{64}$')
+        fail_msg: >-
+          JS8Call must be downloaded over HTTPS with a configured sha256
+          checksum for this architecture (hamstack_js8call_x86_64_checksum or
+          hamstack_js8call_aarch64_checksum). Set
+          hamstack_js8call_require_checksum: false only for a deliberate,
+          unverified install.
 
     - name: Add JS8Call operator to radio/audio groups
       ansible.builtin.user:
@@ -48,8 +63,11 @@
 
     - name: Download JS8Call AppImage
       ansible.builtin.get_url:
-        url: "{{ _hamstack_js8call_url }}"
+        url: "{{ _hamstack_js8call_url | trim }}"
         dest: "{{ hamstack_js8call_install_dir }}/JS8Call.AppImage"
+        checksum: "{{ _hamstack_js8call_checksum | trim if _hamstack_js8call_checksum | trim | length > 0 else omit }}"
+        owner: root
+        group: root
         mode: '0755'
 
     - name: Create JS8Call application directories

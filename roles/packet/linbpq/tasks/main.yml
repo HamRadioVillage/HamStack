@@ -80,10 +80,15 @@
       ansible.builtin.assert:
         that:
           - hamstack_linbpq_binary_url | length > 0
+          - hamstack_linbpq_binary_url is match('^https://')
+          - hamstack_linbpq_binary_checksum | length == 0 or hamstack_linbpq_binary_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           HamStack does not redistribute LinBPQ. Set hamstack_linbpq_binary_url
-          to a compatible upstream binary, or set hamstack_linbpq_install false
-          and install the binary at hamstack_linbpq_binary_path yourself.
+          to a compatible upstream binary served over HTTPS, or set
+          hamstack_linbpq_install false and install the binary at
+          hamstack_linbpq_binary_path yourself. Optional
+          hamstack_linbpq_binary_checksum values must use
+          sha256:<64-hex-digest>.
       when: hamstack_linbpq_install | bool
 
     - name: Download LinBPQ binary

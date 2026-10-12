@@ -16,7 +16,9 @@ Provide either:
 
 A controller-local source takes precedence. `hamstack_chirp_appimage_checksum`
 may optionally contain `sha256:<digest>` and is verified after installation.
-The wheel/pipx method remains available as an explicit alternate path.
+The wheel/pipx method remains available as an explicit alternate path;
+`hamstack_chirp_wheel_checksum` (`sha256:<digest>`) verifies the wheel before
+`pipx` installs it. Artifact URLs for either method must use HTTPS.
 
 HamStack does not manage radio memory images, vendor-specific programming
 settings, or CHIRP's own preferences. The capability is simply made available

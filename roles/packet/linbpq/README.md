@@ -36,8 +36,10 @@ No node or BBS SSID is forced by the role.
 ## Installation policy
 
 HamStack does not redistribute LinBPQ. Set `hamstack_linbpq_install: true` and
-provide a compatible upstream `hamstack_linbpq_binary_url`, or preinstall the
-binary and leave `hamstack_linbpq_install: false`.
+provide a compatible upstream `hamstack_linbpq_binary_url` (HTTPS only), or
+preinstall the binary and leave `hamstack_linbpq_install: false`. Supply
+`hamstack_linbpq_binary_checksum` (`sha256:<digest>`) so the downloaded
+executable is verified before it runs.
 
 ## Graywolf / KISS model
 

@@ -28,7 +28,7 @@
 
     - name: Read kiosk account primary group
       ansible.builtin.command:
-        cmd: "id -gn {{ hamstack_kiosk_user }}"
+        cmd: "id -gn {{ hamstack_kiosk_user | quote }}"
       register: _hamstack_kiosk_group
       changed_when: false
 

@@ -115,6 +115,15 @@ the appliance has one intentionally managed DMR destination. The password is
 Vault-only; routing rules remain explicit public variables so a site can adapt
 them if its URFd policy changes.
 
+HamStack writes the password without creating an Ansible backup copy, and
+`hamstack_wpsd_config_backups` defaults to `false` for every other managed
+WPSD file because `/etc/dmrgateway` and `/etc/mmdvmhost` contain network
+credentials and Ansible never removes the `*~` copies it creates. File
+ownership and permissions of those upstream files remain WPSD's. Values passed
+through `hamstack_wpsd_dashboard_extra_settings` and
+`hamstack_wpsd_mmdvmhost_extra` are written with `no_log` so a credential
+placed there is not echoed in play output.
+
 HamStack still does **not** attempt to clone the rest of WPSD's provider UI:
 BrandMeister/TGIF account management, arbitrary multi-network policy, hostfile
 editors, profiles, and dashboard/SSH passwords remain operator configuration.

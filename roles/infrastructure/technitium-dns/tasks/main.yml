@@ -6,7 +6,7 @@
       ansible.builtin.assert:
         that:
           - ansible_facts['os_family'] == 'Debian'
-          - vault_hamstack_technitium_admin_password | default('') | length >= 8
+          - vault_hamstack_technitium_admin_password | default('') | length >= 12
           - hamstack_technitium_dns_default_zone | length > 0
         fail_msg: >-
           Technitium requires Debian-family container hosting, a nontrivial

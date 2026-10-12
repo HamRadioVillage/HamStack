@@ -3,7 +3,7 @@ set -eu
 
 DECODER_ARGS=""
 {% for decoder in hamstack_multimon_ng_decoders %}
-DECODER_ARGS="$DECODER_ARGS -a {{ decoder }}"
+DECODER_ARGS="$DECODER_ARGS -a {{ decoder | quote }}"
 {% endfor %}
 
 {% if hamstack_multimon_ng_source_command | length > 0 %}

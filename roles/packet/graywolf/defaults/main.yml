@@ -5,6 +5,8 @@ hamstack_graywolf_enabled: false
 hamstack_graywolf_install: true
 hamstack_graywolf_version: latest
 hamstack_graywolf_package_url: ''
+# Optional sha256:<digest> of the Graywolf package that will be installed.
+hamstack_graywolf_package_checksum: ''
 hamstack_graywolf_callsign: '{{ hamstack_callsign | default(''N0CALL'') }}'
 hamstack_graywolf_config_path: ''
 hamstack_graywolf_autostart: true

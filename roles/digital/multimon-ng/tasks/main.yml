@@ -29,6 +29,24 @@
         mode: '0755'
       notify: Restart HamStack multimon-ng
 
+    - name: Create multimon-ng service group
+      ansible.builtin.group:
+        name: "{{ hamstack_multimon_ng_group }}"
+        system: true
+      when: hamstack_multimon_ng_manage_user | bool
+
+    - name: Create multimon-ng service account
+      ansible.builtin.user:
+        name: "{{ hamstack_multimon_ng_user }}"
+        group: "{{ hamstack_multimon_ng_group }}"
+        groups: "{{ hamstack_multimon_ng_user_groups }}"
+        append: true
+        system: true
+        create_home: false
+        home: /nonexistent
+        shell: /usr/sbin/nologin
+      when: hamstack_multimon_ng_manage_user | bool
+
     - name: Ensure multimon-ng log directory exists
       ansible.builtin.file:
         path: "{{ hamstack_multimon_ng_output_file | dirname }}"
@@ -36,6 +54,16 @@
         owner: root
         group: root
         mode: '0755'
+
+    - name: Ensure multimon-ng log file is owned by the service account
+      ansible.builtin.file:
+        path: "{{ hamstack_multimon_ng_output_file }}"
+        state: touch
+        owner: "{{ hamstack_multimon_ng_user }}"
+        group: "{{ hamstack_multimon_ng_group }}"
+        mode: '0640'
+        access_time: preserve
+        modification_time: preserve
 
     - name: Install multimon-ng systemd service
       ansible.builtin.template:

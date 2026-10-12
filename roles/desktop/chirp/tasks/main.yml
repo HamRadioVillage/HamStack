@@ -9,15 +9,28 @@
           - hamstack_chirp_user | length > 0
           - hamstack_chirp_install_method in ['appimage', 'wheel']
           - hamstack_chirp_install_method != 'appimage' or ansible_facts['architecture'] == 'x86_64'
+          - >-
+            hamstack_chirp_appimage_url | length == 0
+            or hamstack_chirp_appimage_url is match('^https://')
+          - >-
+            hamstack_chirp_wheel_url | length == 0
+            or hamstack_chirp_wheel_url is match('^https://')
+          - >-
+            hamstack_chirp_wheel_checksum | length == 0
+            or hamstack_chirp_wheel_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           CHIRP supports the recommended AppImage method on x86_64 Linux and
           the upstream wheel/pipx method as an alternate installation path.
+          Download URLs must use HTTPS and optional
+          hamstack_chirp_wheel_checksum values must use sha256:<64-hex-digest>.
 
     - name: Validate CHIRP AppImage artifact source
       ansible.builtin.assert:
         that:
           - hamstack_chirp_appimage_src | length > 0 or hamstack_chirp_appimage_url | length > 0
-          - hamstack_chirp_appimage_checksum | length == 0 or hamstack_chirp_appimage_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
+          - >-
+            hamstack_chirp_appimage_checksum | length == 0
+            or hamstack_chirp_appimage_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           CHIRP's public archive may reject unattended downloads. Set
           hamstack_chirp_appimage_src to a controller-local AppImage or set
@@ -43,7 +56,7 @@
 
     - name: Read CHIRP operator primary group
       ansible.builtin.command:
-        cmd: "id -gn {{ hamstack_chirp_user }}"
+        cmd: "id -gn {{ hamstack_chirp_user | quote }}"
       register: _hamstack_chirp_group
       changed_when: false
 
@@ -127,6 +140,9 @@
       ansible.builtin.get_url:
         url: "{{ hamstack_chirp_wheel_url }}"
         dest: "{{ hamstack_chirp_cache_dir }}/chirp-{{ hamstack_chirp_version }}.whl"
+        checksum: "{{ hamstack_chirp_wheel_checksum if hamstack_chirp_wheel_checksum | length > 0 else omit }}"
+        owner: root
+        group: root
         mode: '0644'
         http_agent: "{{ hamstack_chirp_http_agent }}"
       register: _hamstack_chirp_wheel
@@ -143,6 +159,7 @@
         cmd: >-
           pipx install --system-site-packages --force
           {{ hamstack_chirp_cache_dir }}/chirp-{{ hamstack_chirp_version }}.whl
+      become: true
       become_user: "{{ hamstack_chirp_user }}"
       changed_when: true
       when:

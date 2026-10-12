@@ -1,0 +1,24 @@
+# Managed by HamStack (digital/ft8web). Serves the local FT8Web mirror to the
+# Caddy TLS sidecar on the private Docker network only.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    root /srv/ft8web/current;
+    index index.html;
+
+    autoindex off;
+    server_tokens off;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}

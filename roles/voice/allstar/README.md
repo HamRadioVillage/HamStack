@@ -18,8 +18,10 @@ stanzas in place:
 - `/etc/asterisk/rpt_http_registrations.conf`
 - `/etc/sa818.conf` when SA818 management is enabled
 
-Ansible creates a backup whenever a managed file changes. A later HamStack run
-will overwrite direct edits to the managed files.
+Ansible creates a backup whenever a managed file changes, except for
+`rpt_http_registrations.conf`: it holds the node registration password, and an
+Ansible backup copy would keep the previous file's permissions indefinitely. A
+later HamStack run will overwrite direct edits to the managed files.
 
 ### Manual/site-local changes
 

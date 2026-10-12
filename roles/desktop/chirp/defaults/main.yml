@@ -7,6 +7,8 @@ hamstack_chirp_appimage_src: ''
 hamstack_chirp_appimage_url: ''
 hamstack_chirp_appimage_checksum: ''
 hamstack_chirp_wheel_url: "https://archive.chirpmyradio.com/chirp_next/next-{{ hamstack_chirp_version }}/chirp-{{ hamstack_chirp_version }}-py3-none-any.whl"
+# Optional sha256:<digest> of the wheel used by the wheel/pipx method.
+hamstack_chirp_wheel_checksum: ''
 hamstack_chirp_http_agent: Mozilla/5.0
 hamstack_chirp_install_dir: /opt/hamstack/chirp
 hamstack_chirp_cache_dir: "{{ (hamstack_cache_dir | default('/var/cache/hamstack')) ~ '/chirp' }}"

@@ -7,7 +7,10 @@ MariaDB/MySQL.
 The role installs the runtime, checks out the requested Cloudlog ref, keeps the
 application source root-owned, grants `www-data` write access only to Cloudlog's
 known runtime/upload/config paths, creates a local database/user, and exposes
-only an HTTPS Apache virtual host using a self-signed certificate. It
+only an HTTPS Apache virtual host using a self-signed certificate.
+`application/config`, where the installer writes `database.php` and the
+application secrets, is kept readable by root and `www-data` only; other local
+accounts cannot read the database credentials. It
 intentionally leaves Cloudlog's own `/install` wizard and application-level
 station/user/logging configuration to Cloudlog.
 

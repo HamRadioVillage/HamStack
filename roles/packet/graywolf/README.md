@@ -8,7 +8,9 @@ Deploy Graywolf as HamStack's reusable software-modem/TNC layer between radio/au
 
 ## Responsibilities
 
-- Install an official Graywolf Debian release and manage the service.
+- Install an official Graywolf Debian release over HTTPS and manage the
+  service. `hamstack_graywolf_package_checksum` (`sha256:<digest>`) verifies
+  the package when a release is pinned.
 - Bootstrap the first Graywolf management user when explicitly enabled.
 - Set station identity through the supported REST API.
 - Create/update named audio devices and modem-backed or KISS-only channels.

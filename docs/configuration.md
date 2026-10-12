@@ -329,7 +329,8 @@ The Graywolf KISS→AX.25 session→ENiGMA shim is planned but not part of the c
 | `hamstack_graywolf_enabled` | boolean | `false` | role | Enable Graywolf management on this host. |
 | `hamstack_graywolf_install` | boolean | `true` | role | Install the supported upstream Debian package. |
 | `hamstack_graywolf_version` | string | `latest` | role | Release to install, or a pinned upstream version. |
-| `hamstack_graywolf_package_url` | string | `""` | role | Optional direct `.deb` URL, bypassing release discovery. |
+| `hamstack_graywolf_package_url` | string | `""` | role | Optional direct `.deb` URL (HTTPS), bypassing release discovery. |
+| `hamstack_graywolf_package_checksum` | string | `""` | role | Optional `sha256:<digest>` verified before the package is installed. |
 | `hamstack_graywolf_autostart` | boolean | `true` | role | Enable/start the Graywolf systemd service. |
 | `hamstack_graywolf_manage_api` | boolean | `false` | role | Converge Graywolf operational state through its REST API. |
 | `hamstack_graywolf_api_url` | URL | `http://127.0.0.1:8080/api` | role | Graywolf management API base. |
@@ -399,7 +400,8 @@ Channel `mode` accepts `aprs`, `packet`, or `aprs+packet`. A channel with `kiss_
 | --- | --- | --- | --- | --- |
 | `hamstack_linbpq_enabled` | boolean | `false` | role | Enable LinBPQ node/BBS. |
 | `hamstack_linbpq_install` | boolean | `false` | role | Download an operator-selected upstream binary. |
-| `hamstack_linbpq_binary_url` | URL | `""` | role | Compatible upstream binary URL when install is enabled. |
+| `hamstack_linbpq_binary_url` | URL | `""` | role | Compatible upstream binary URL (HTTPS) when install is enabled. |
+| `hamstack_linbpq_binary_checksum` | string | `""` | role | Optional `sha256:<digest>` of the binary, verified on download. |
 | `hamstack_linbpq_binary_path` | path | `/opt/linbpq/linbpq` | role | Executable path. |
 | `hamstack_linbpq_node_callsign` | string | site callsign | role | Node callsign. |
 | `hamstack_linbpq_node_alias` | string | `""` | role | NET/ROM node alias. |
@@ -430,8 +432,12 @@ ARDOP, VARA, PACTOR, Hamlib, and GPSd integration. HamStack does not deploy
 every modem/rig stack automatically.
 
 Use `vault_hamstack_winlink_password` for the Winlink secure-login password.
-See `docs/variables.md` and the role README for the exhaustive current variable
-surface.
+The Pat package is downloaded into the root-owned HamStack package cache and
+verified against `hamstack_winlink_package_checksums` (per-architecture
+`sha256:<digest>` values for `hamstack_winlink_version`);
+`hamstack_winlink_require_checksum` controls whether an unknown digest is an
+error. See `docs/variables.md` and the role README for the exhaustive current
+variable surface.
 
 ### Services
 
@@ -541,7 +547,8 @@ workflows. See `docs/variables.md` for the complete variables.
 | `hamstack_gridtracker_enabled` | boolean | `false` | role | Enable GridTracker2. |
 | `hamstack_gridtracker_install` | boolean | `true` | role | Install a Debian package. |
 | `hamstack_gridtracker_version` | string | `2.260925.2` | role | Tested default or another pinned upstream version. |
-| `hamstack_gridtracker_package_url` | URL | `""` | role | Explicit package override. |
+| `hamstack_gridtracker_package_url` | URL | `""` | role | Explicit package override (HTTPS). |
+| `hamstack_gridtracker_package_checksum` | string | `""` | role | Optional `sha256:<digest>` verified before the package is installed. |
 | `hamstack_gridtracker_wsjtx_host` | string | `127.0.0.1` | role | Reserved WSJT-X input host setting. |
 | `hamstack_gridtracker_wsjtx_port` | integer | `2237` | role | Reserved WSJT-X UDP port. |
 | `hamstack_gridtracker_autostart` | boolean | `false` | role | Add XDG autostart for the operator user. |
@@ -582,7 +589,10 @@ The OpenWebRX HTTP listener on 8073 remains Docker-private. Receiver profiles an
 | Variable | Type | Default | Scope | Purpose |
 | --- | --- | --- | --- | --- |
 | `hamstack_selfie_station_enabled` | boolean | `false` | role | Enable the SSTV Selfie Station workflow. |
-| `hamstack_selfie_station_user` | string | `hamstack` | role | Linux account used to run the headless Selfie Station service. |
+| `hamstack_selfie_station_user` | string | `hamstack-selfie` | role | Dedicated unprivileged Linux account that runs the headless Selfie Station service. Do not reuse the Ansible automation account. |
+| `hamstack_selfie_station_group` | string | `hamstack-selfie` | role | Primary group of the service account. |
+| `hamstack_selfie_station_manage_user` | boolean | `true` | role | Create the service account/group as a nologin system user. |
+| `hamstack_selfie_station_user_groups` | list[string] | `audio`, `dialout`, `video`, `input` | role | Supplementary groups granting camera, audio, AIOC serial, and trigger-device access. |
 | `hamstack_selfie_station_install_dir` | path | `/opt/hamstack/selfie_station` | role | Application deployment directory. |
 | `hamstack_selfie_station_venv_dir` | path | `/opt/hamstack/selfie_station/venv` | role | Python virtual environment used by the service. |
 | `hamstack_selfie_station_data_dir` | path | `{{ (hamstack_data_dir \| default('/var/lib/hamstack')) ~ '/selfie_station' }}` | role | Root for photos, generated SSTV images, and WAV files. |
@@ -726,6 +736,10 @@ BrandMeister/TGIF account management,
 arbitrary multi-network policy, hostfile management, dashboard credentials, and
 profiles remain WPSD operator configuration.
 
+`hamstack_wpsd_config_backups` (default `false`) controls whether Ansible
+leaves `*~` backup copies of the WPSD files it edits; those files carry network
+credentials, so backups are off unless deliberately enabled.
+
 See `docs/variables.md` for the exhaustive generated variable index.
 
 ## Secret variables
@@ -842,8 +856,10 @@ and network appliances.
 - `desktop/hamstack-controller` prepares a lean conference control station for
   running Ansible playbooks.
 - `desktop/kiosk` launches a configurable Chromium kiosk.
-- `desktop/chirp` installs CHIRP-next for radio programming.
-- `desktop/netlogger` installs an operator-supplied NetLogger Debian package.
+- `desktop/chirp` installs CHIRP-next for radio programming;
+  `hamstack_chirp_wheel_checksum` verifies the wheel path.
+- `desktop/netlogger` installs an operator-supplied NetLogger Debian package;
+  `hamstack_netlogger_package_checksum` verifies a URL-sourced package.
 
 ### Infrastructure
 
@@ -858,5 +874,9 @@ See [profiles.md](profiles.md) for deployment compositions and
 
 The current role set also includes `digital/multimon-ng`, `digital/unipager`,
 `digital/js8call`, `digital/ft8web`, and a Pat-backed `packet/winlink` role.
+The managed multimon-ng service runs as the dedicated
+`hamstack_multimon_ng_user` account, and JS8Call AppImages are verified
+against `hamstack_js8call_x86_64_checksum` / `hamstack_js8call_aarch64_checksum`.
+Downloaded packages and executables must come from HTTPS URLs.
 AREDN integration is read-only monitoring of existing AREDN nodes rather than
 firmware/configuration ownership.

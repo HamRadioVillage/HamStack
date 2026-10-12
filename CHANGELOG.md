@@ -6,6 +6,47 @@ HamStack uses semantic versioning while the public interface is still evolving. 
 the `0.x` line, role variables and implementation boundaries may change between minor
 releases when needed to establish a durable public contract.
 
+## [Unreleased]
+
+### Security
+
+- `packet/winlink`: the Pat package is downloaded into the root-owned HamStack
+  package cache and verified against per-architecture SHA-256 digests instead of
+  being installed from an unverified file in `/tmp`.
+- `services/cloudlog`: `application/config` (database credentials) is no longer
+  made world-readable on every run.
+- `digital/multimon-ng`: the managed decoder service runs as a dedicated
+  unprivileged account under a sandboxed systemd unit instead of root.
+- `digital/selfie_station`: the service runs as the dedicated `hamstack-selfie`
+  account under a sandboxed systemd unit with a root-owned install tree instead
+  of the Ansible automation account.
+- Download verification: JS8Call AppImages ship with upstream digests and are
+  verified by default; GridTracker2, Graywolf, CHIRP (wheel), NetLogger, and
+  LinBPQ accept `sha256:` checksums, and all download URLs must use HTTPS.
+  GridTracker2 caches packages by upstream filename so version changes are
+  honored.
+- `network/openwrt`: Wi-Fi, radio, route, and firewall-zone identifiers are
+  validated before being rendered into the UCI script executed on the router.
+- `network/routeros`: `hamstack_routeros_api_validate_certs` now defaults to
+  `true`; `playbooks/network.yml` no longer inherits `become`.
+- `infrastructure/technitium-dns`: the admin password must be at least 12
+  characters.
+- `voice/allstar` and `voice/wpsd`: credential-bearing files no longer leave
+  Ansible backup copies by default (`hamstack_wpsd_config_backups`), and WPSD
+  pass-through settings are written with `no_log`.
+
+### Fixed
+
+- `digital/ft8web`: added the missing nginx template that prevented the role
+  from deploying.
+- `scripts/qa.py` now fails when a role task references a template or file the
+  role does not ship.
+- Repository CI now passes `yamllint` and `ansible-lint`: a list-indentation
+  error in `roles/common/defaults/main.yml` is fixed, tasks that set
+  `become_user` declare `become` explicitly, and `.ansible-lint` downgrades the
+  `var-naming[no-role-prefix]` and `yaml[line-length]` rules to warnings
+  because the `hamstack_*` variable namespace is intentional.
+
 ## [0.1.0] - 2026-09-28
 
 Initial public alpha release.

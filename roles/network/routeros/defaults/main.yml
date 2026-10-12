@@ -12,7 +12,9 @@ hamstack_network_dns_servers: []
 hamstack_network_extra_settings: {}
 hamstack_routeros_api_port: 8729
 hamstack_routeros_api_tls: true
-hamstack_routeros_api_validate_certs: false
+# Verify the router's API-SSL certificate. Disable only for a deliberate
+# lab/self-signed deployment; the API credential travels over this session.
+hamstack_routeros_api_validate_certs: true
 hamstack_routeros_api_username: "{{ ansible_user | default('admin') }}"
 hamstack_routeros_api_password: "{{ ansible_password | default(vault_hamstack_routeros_password | default('')) }}"
 hamstack_routeros_native_paths: []

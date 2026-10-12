@@ -2,7 +2,16 @@
 # Public configuration defaults for the selfie_station HamStack role.
 # See docs/configuration.md for the configuration contract.
 hamstack_selfie_station_enabled: false
-hamstack_selfie_station_user: hamstack
+# Dedicated unprivileged service account. Do not reuse the Ansible automation
+# account; it typically holds passwordless sudo.
+hamstack_selfie_station_user: hamstack-selfie
+hamstack_selfie_station_group: hamstack-selfie
+hamstack_selfie_station_manage_user: true
+hamstack_selfie_station_user_groups:
+  - audio
+  - dialout
+  - video
+  - input
 hamstack_selfie_station_install_dir: /opt/hamstack/selfie_station
 hamstack_selfie_station_venv_dir: /opt/hamstack/selfie_station/venv
 hamstack_selfie_station_data_dir: '{{ (hamstack_data_dir | default(''/var/lib/hamstack'')) ~ ''/selfie_station'' }}'

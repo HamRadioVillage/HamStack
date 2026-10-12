@@ -6,4 +6,10 @@ hamstack_js8call_install_dir: /opt/hamstack/js8call
 hamstack_js8call_autostart: false
 hamstack_js8call_x86_64_url: "https://github.com/JS8Call-improved/JS8Call-improved/releases/download/v{{ hamstack_js8call_version }}/JS8Call-v{{ hamstack_js8call_version }}-x86_64.AppImage"
 hamstack_js8call_aarch64_url: "https://github.com/JS8Call-improved/JS8Call-improved/releases/download/v{{ hamstack_js8call_version }}/JS8Call-v{{ hamstack_js8call_version }}-aarch64.AppImage"
+# SHA-256 digests of the upstream AppImages for hamstack_js8call_version.
+# Update these alongside the version.
+hamstack_js8call_x86_64_checksum: sha256:3f89bd821f281c59a9384c08a3ad783ea3b9ac6abf319ce6c0d881c2ecc6e6cd
+hamstack_js8call_aarch64_checksum: sha256:003b7e6f41abc702710051e648d3c673110fe31e8f275bbfa9508f560672b8a4
+# Refuse to install an AppImage whose digest is not configured.
+hamstack_js8call_require_checksum: true
 hamstack_js8call_extra_args: []

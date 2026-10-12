@@ -48,6 +48,10 @@ hamstack_wpsd_manage_modes: true
 # URFd speaks the MMDVM/Homebrew protocol on UDP/62030.
 hamstack_wpsd_manage_dmr_custom_network: false
 hamstack_wpsd_dmrgateway_config_path: /etc/dmrgateway
+# Ansible-side backups (<file>.<pid>.<timestamp>~) of the WPSD configuration
+# files HamStack edits. Disabled by default because /etc/dmrgateway and
+# /etc/mmdvmhost carry network passwords and the copies are never cleaned up.
+hamstack_wpsd_config_backups: false
 hamstack_wpsd_dmr_custom_network_name: ""
 hamstack_wpsd_dmr_custom_network_address: ""
 hamstack_wpsd_dmr_custom_network_port: 62030

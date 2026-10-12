@@ -3,6 +3,8 @@ hamstack_gridtracker_enabled: false
 hamstack_gridtracker_install: true
 hamstack_gridtracker_version: '2.260925.2'
 hamstack_gridtracker_package_url: ''
+# Optional sha256:<digest> of the package that will be installed.
+hamstack_gridtracker_package_checksum: ''
 hamstack_gridtracker_base_url: https://download2.gridtracker.org
 hamstack_gridtracker_download_page: https://gridtracker.org/index.php/downloads/gridtracker-downloads
 hamstack_gridtracker_callsign: "{{ hamstack_callsign | default('N0CALL') }}"

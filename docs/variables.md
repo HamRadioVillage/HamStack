@@ -68,6 +68,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_chirp_serial_groups` | `[dialout]` | Configuration value for chirp serial groups; see the desktop/chirp role README for operational context. |
 | `hamstack_chirp_user` | `{{ hamstack_operator_user \| default('') }}` | Configuration value for chirp user; see the desktop/chirp role README for operational context. |
 | `hamstack_chirp_version` | `20260904` | Requested upstream software version. |
+| `hamstack_chirp_wheel_checksum` | `` | Configuration value for chirp wheel checksum; see the desktop/chirp role README for operational context. |
 | `hamstack_chirp_wheel_url` | `https://archive.chirpmyradio.com/chirp_next/next-{{ hamstack_chirp_version }}/chirp-{{ hamstack_chirp_versi...` | Configuration value for chirp wheel url; see the desktop/chirp role README for operational context. |
 
 ## `desktop/hamstack-controller`
@@ -122,6 +123,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_netlogger_cache_dir` | `{{ (hamstack_cache_dir \| default('/var/cache/hamstack')) ~ '/netlogger' }}` | Configuration value for netlogger cache dir; see the desktop/netlogger role README for operational context. |
 | `hamstack_netlogger_enabled` | `false` | Enable the desktop/netlogger role/capability. |
 | `hamstack_netlogger_extra_packages` | `[]` | Configuration value for netlogger extra packages; see the desktop/netlogger role README for operational context. |
+| `hamstack_netlogger_package_checksum` | `` | Configuration value for netlogger package checksum; see the desktop/netlogger role README for operational context. |
 | `hamstack_netlogger_package_filename` | `netlogger.deb` | Configuration value for netlogger package filename; see the desktop/netlogger role README for operational context. |
 | `hamstack_netlogger_package_src` | `` | Configuration value for netlogger package src; see the desktop/netlogger role README for operational context. |
 | `hamstack_netlogger_package_url` | `` | Explicit upstream package URL override. |
@@ -181,13 +183,16 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `hamstack_js8call_aarch64_checksum` | `sha256:003b7e6f41abc702710051e648d3c673110fe31e8f275bbfa9508f560672b8a4` | Configuration value for js8call aarch64 checksum; see the digital/js8call role README for operational context. |
 | `hamstack_js8call_aarch64_url` | `https://github.com/JS8Call-improved/JS8Call-improved/releases/download/v{{ hamstack_js8call_version }}/JS8C...` | Configuration value for js8call aarch64 url; see the digital/js8call role README for operational context. |
 | `hamstack_js8call_autostart` | `false` | Enable/start the managed service or desktop autostart entry. |
 | `hamstack_js8call_enabled` | `false` | Enable the digital/js8call role/capability. |
 | `hamstack_js8call_extra_args` | `[]` | Configuration value for js8call extra args; see the digital/js8call role README for operational context. |
 | `hamstack_js8call_install_dir` | `/opt/hamstack/js8call` | Configuration value for js8call install dir; see the digital/js8call role README for operational context. |
+| `hamstack_js8call_require_checksum` | `true` | Configuration value for js8call require checksum; see the digital/js8call role README for operational context. |
 | `hamstack_js8call_user` | `{{ hamstack_operator_user \| default('') }}` | Configuration value for js8call user; see the digital/js8call role README for operational context. |
 | `hamstack_js8call_version` | `3.0.3` | Requested upstream software version. |
+| `hamstack_js8call_x86_64_checksum` | `sha256:3f89bd821f281c59a9384c08a3ad783ea3b9ac6abf319ce6c0d881c2ecc6e6cd` | Configuration value for js8call x86 64 checksum; see the digital/js8call role README for operational context. |
 | `hamstack_js8call_x86_64_url` | `https://github.com/JS8Call-improved/JS8Call-improved/releases/download/v{{ hamstack_js8call_version }}/JS8C...` | Configuration value for js8call x86 64 url; see the digital/js8call role README for operational context. |
 
 ## `digital/multimon-ng`
@@ -197,11 +202,15 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_multimon_ng_decoders` | `[POCSAG512, POCSAG1200, POCSAG2400]` | Configuration value for multimon ng decoders; see the digital/multimon-ng role README for operational context. |
 | `hamstack_multimon_ng_enabled` | `false` | Enable the digital/multimon-ng role/capability. |
 | `hamstack_multimon_ng_extra_args` | `[]` | Configuration value for multimon ng extra args; see the digital/multimon-ng role README for operational context. |
+| `hamstack_multimon_ng_group` | `hamstack-multimon` | Configuration value for multimon ng group; see the digital/multimon-ng role README for operational context. |
 | `hamstack_multimon_ng_input_type` | `raw` | Configuration value for multimon ng input type; see the digital/multimon-ng role README for operational context. |
 | `hamstack_multimon_ng_install` | `true` | Allow HamStack to install the upstream software. |
+| `hamstack_multimon_ng_manage_user` | `true` | Configuration value for multimon ng manage user; see the digital/multimon-ng role README for operational context. |
 | `hamstack_multimon_ng_output_file` | `{{ (hamstack_log_dir \| default('/var/log/hamstack')) ~ '/multimon-ng.log' }}` | Configuration value for multimon ng output file; see the digital/multimon-ng role README for operational context. |
 | `hamstack_multimon_ng_service_enabled` | `false` | Enable the digital/multimon-ng role/capability. |
 | `hamstack_multimon_ng_source_command` | `` | Configuration value for multimon ng source command; see the digital/multimon-ng role README for operational context. |
+| `hamstack_multimon_ng_user` | `hamstack-multimon` | Configuration value for multimon ng user; see the digital/multimon-ng role README for operational context. |
+| `hamstack_multimon_ng_user_groups` | `[audio, plugdev]` | Configuration value for multimon ng user groups; see the digital/multimon-ng role README for operational context. |
 
 ## `digital/qsstv-runtime`
 
@@ -234,9 +243,11 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_selfie_station_enabled` | `false` | Enable the SSTV Selfie Station workflow. |
 | `hamstack_selfie_station_event_name` | `{{ hamstack_event_name \| default('') }}` | Event name rendered into the output/overlay when desired. |
 | `hamstack_selfie_station_extra_settings` | `{}` | Selfie Station settings not yet promoted to first-class variables. |
+| `hamstack_selfie_station_group` | `hamstack-selfie` | Primary group of the service account. |
 | `hamstack_selfie_station_image_dir` | `{{ (hamstack_data_dir \| default('/var/lib/hamstack')) ~ '/selfie_station' }}` | Directory for captured/generated images. |
 | `hamstack_selfie_station_install_dir` | `/opt/hamstack/selfie_station` | Application deployment directory. |
 | `hamstack_selfie_station_interface` | `` | Device from hamstack_devices used for audio/PTT when needed. |
+| `hamstack_selfie_station_manage_user` | `true` | Create the service account/group as a nologin system user. |
 | `hamstack_selfie_station_overlay_template` | `de {{ hamstack_callsign \| default('N0CALL') }}` | Text/template used to build the image overlay. |
 | `hamstack_selfie_station_ptt_lead_seconds` | `0.3` | Delay after keying PTT before audio playback. |
 | `hamstack_selfie_station_ptt_tail_seconds` | `0.2` | Delay after playback before unkeying PTT. |
@@ -248,7 +259,8 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_selfie_station_trigger_device` | `` | Trigger/HID device from hamstack_devices. |
 | `hamstack_selfie_station_trigger_fallback_device` | `/dev/input/by-id/usb-PCsensor_FootSwitch-event-kbd` | Fallback foot-pedal event device when no HID endpoint is supplied. |
 | `hamstack_selfie_station_trigger_key` | `KEY_B` | Linux input-event key emitted by the trigger device. |
-| `hamstack_selfie_station_user` | `hamstack` | Linux account used to run the headless Selfie Station service. |
+| `hamstack_selfie_station_user` | `hamstack-selfie` | Dedicated unprivileged Linux account that runs the headless Selfie Station service. Do not reuse the Ansible automation account. |
+| `hamstack_selfie_station_user_groups` | `[audio, dialout, video, input]` | Supplementary groups granting camera, audio, AIOC serial, and trigger-device access. |
 | `hamstack_selfie_station_venv_dir` | `/opt/hamstack/selfie_station/venv` | Python virtual environment used by the service. |
 
 ## `digital/sstv-rx`
@@ -438,7 +450,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_routeros_api_port` | `8729` | Network port used by this setting. |
 | `hamstack_routeros_api_tls` | `true` | Configuration value for routeros api tls; see the network/routeros role README for operational context. |
 | `hamstack_routeros_api_username` | `{{ ansible_user \| default('admin') }}` | Configuration value for routeros api username; see the network/routeros role README for operational context. |
-| `hamstack_routeros_api_validate_certs` | `false` | Configuration value for routeros api validate certs; see the network/routeros role README for operational context. |
+| `hamstack_routeros_api_validate_certs` | `true` | Configuration value for routeros api validate certs; see the network/routeros role README for operational context. |
 | `hamstack_routeros_enabled` | `false` | Enable the network/routeros role/capability. |
 | `hamstack_routeros_native_paths` | `[]` | Configuration value for routeros native paths; see the network/routeros role README for operational context. |
 
@@ -530,7 +542,8 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_graywolf_manage_api` | `false` | Converge Graywolf operational state through its REST API. |
 | `hamstack_graywolf_manage_first_user` | `true` | Create the first Graywolf management user on an unconfigured node. |
 | `hamstack_graywolf_manage_station` | `true` | Converge Graywolf's station callsign. |
-| `hamstack_graywolf_package_url` | `` | Optional direct `.deb` URL, bypassing release discovery. |
+| `hamstack_graywolf_package_checksum` | `` | Optional `sha256:<digest>` verified before the package is installed. |
+| `hamstack_graywolf_package_url` | `` | Optional direct `.deb` URL (HTTPS), bypassing release discovery. |
 | `hamstack_graywolf_password` | `{{   vault_hamstack_graywolf_password   \| default(vault_hamstack_aprs_graywolf_password \| default('')) }}` | Management password; prefer `vault_hamstack_graywolf_password`. |
 | `hamstack_graywolf_username` | `hamstack` | Management account used by automation. |
 | `hamstack_graywolf_version` | `latest` | Release to install, or a pinned upstream version. |
@@ -553,9 +566,9 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_linbpq_bbs_ssid` | `null` | Configuration value for linbpq bbs ssid; see the packet/linbpq role README for operational context. |
 | `hamstack_linbpq_beacon_interval` | `10` | Configuration value for linbpq beacon interval; see the packet/linbpq role README for operational context. |
 | `hamstack_linbpq_beacon_text` | `` | Configuration value for linbpq beacon text; see the packet/linbpq role README for operational context. |
-| `hamstack_linbpq_binary_checksum` | `` | Configuration value for linbpq binary checksum; see the packet/linbpq role README for operational context. |
+| `hamstack_linbpq_binary_checksum` | `` | Optional `sha256:<digest>` of the binary, verified on download. |
 | `hamstack_linbpq_binary_path` | `/opt/linbpq/linbpq` | Executable path. |
-| `hamstack_linbpq_binary_url` | `` | Compatible upstream binary URL when install is enabled. |
+| `hamstack_linbpq_binary_url` | `` | Compatible upstream binary URL (HTTPS) when install is enabled. |
 | `hamstack_linbpq_callsign_base` | `{{ hamstack_callsign \| default('N0CALL') }}` | Configuration value for linbpq callsign base; see the packet/linbpq role README for operational context. |
 | `hamstack_linbpq_config_path` | `{{ hamstack_linbpq_data_dir }}/bpq32.cfg` | Configuration value for linbpq config path; see the packet/linbpq role README for operational context. |
 | `hamstack_linbpq_connect_text` | `` | Configuration value for linbpq connect text; see the packet/linbpq role README for operational context. |
@@ -625,6 +638,9 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_winlink_locator` | `{{ hamstack_grid_locator \| default('') }}` | Configuration value for winlink locator; see the packet/winlink role README for operational context. |
 | `hamstack_winlink_manage_user` | `true` | Configuration value for winlink manage user; see the packet/winlink role README for operational context. |
 | `hamstack_winlink_motd` | `[HamStack Pat Winlink client]` | Configuration value for winlink motd; see the packet/winlink role README for operational context. |
+| `hamstack_winlink_package_cache_dir` | `{{ (hamstack_cache_dir \| default('/var/cache/hamstack')) ~ '/packages' }}` | Configuration value for winlink package cache dir; see the packet/winlink role README for operational context. |
+| `hamstack_winlink_package_checksums` | `{amd64: 'sha256:3dec3c2f0802707e7789c6752e955f141365e14923cc5c6331ddb8af48663d32',   arm64: 'sha256:15f19a5...` | Configuration value for winlink package checksums; see the packet/winlink role README for operational context. |
+| `hamstack_winlink_require_checksum` | `true` | Configuration value for winlink require checksum; see the packet/winlink role README for operational context. |
 | `hamstack_winlink_serial_tnc_baud` | `9600` | Configuration value for winlink serial tnc baud; see the packet/winlink role README for operational context. |
 | `hamstack_winlink_serial_tnc_hbaud` | `1200` | Configuration value for winlink serial tnc hbaud; see the packet/winlink role README for operational context. |
 | `hamstack_winlink_serial_tnc_path` | `/dev/ttyUSB0` | Configuration value for winlink serial tnc path; see the packet/winlink role README for operational context. |
@@ -802,7 +818,8 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_gridtracker_install` | `true` | Install a Debian package. |
 | `hamstack_gridtracker_logging_backend` | `` | Configuration value for gridtracker logging backend; see the visual/gridtracker role README for operational context. |
 | `hamstack_gridtracker_logging_url` | `` | Configuration value for gridtracker logging url; see the visual/gridtracker role README for operational context. |
-| `hamstack_gridtracker_package_url` | `` | Explicit package override. |
+| `hamstack_gridtracker_package_checksum` | `` | Optional `sha256:<digest>` verified before the package is installed. |
+| `hamstack_gridtracker_package_url` | `` | Explicit package override (HTTPS). |
 | `hamstack_gridtracker_version` | `2.260925.2` | Tested default or another pinned upstream version. |
 | `hamstack_gridtracker_wsjtx_host` | `127.0.0.1` | Reserved WSJT-X input host setting. |
 | `hamstack_gridtracker_wsjtx_port` | `2237` | Reserved WSJT-X UDP port. |
@@ -916,6 +933,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `hamstack_wpsd_callsign` | `{{ hamstack_callsign \| default('N0CALL') }}` | Callsign used by this role. |
+| `hamstack_wpsd_config_backups` | `false` | Configuration value for wpsd config backups; see the voice/wpsd role README for operational context. |
 | `hamstack_wpsd_config_path` | `/etc/mmdvmhost` | Configuration value for wpsd config path; see the voice/wpsd role README for operational context. |
 | `hamstack_wpsd_dashboard_config_path` | `/etc/WPSD-Dashboard-Config.ini` | Configuration value for wpsd dashboard config path; see the voice/wpsd role README for operational context. |
 | `hamstack_wpsd_dashboard_extra_settings` | `{}` | Reserved pass-through/extension settings not otherwise modeled. |

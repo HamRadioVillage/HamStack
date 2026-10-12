@@ -13,6 +13,44 @@
       loop_control:
         label: "{{ item.name | default('unnamed') }}"
 
+    - name: Validate OpenWrt Wi-Fi identifiers
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - item.name is match('^[A-Za-z0-9_]+$')
+          - item.radio is defined
+          - item.radio is match('^[A-Za-z0-9_]+$')
+        fail_msg: >-
+          Each hamstack_network_wifi entry needs UCI-safe name and radio
+          identifiers (letters, digits, underscore). These values are used
+          as UCI section names in a root shell on the router.
+      loop: "{{ hamstack_network_wifi }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Validate OpenWrt route identifiers
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - item.name is match('^[A-Za-z0-9_]+$')
+        fail_msg: "Each hamstack_network_routes entry needs a UCI-safe name."
+      loop: "{{ hamstack_network_routes }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Validate OpenWrt firewall zone identifiers
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - item.name is match('^[A-Za-z0-9_]+$')
+          - item.forward_to | default([]) | reject('match', '^[A-Za-z0-9_]+$') | list | length == 0
+        fail_msg: >-
+          Each hamstack_network_firewall_zones entry needs a UCI-safe name and
+          UCI-safe forward_to zone names (letters, digits, underscore).
+      loop: "{{ hamstack_network_firewall_zones }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
     - name: Verify target exposes OpenWrt UCI
       ansible.builtin.raw: command -v uci && uci -q get system.@system[0].hostname
       changed_when: false

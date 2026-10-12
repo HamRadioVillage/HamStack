@@ -1,6 +1,16 @@
 ---
 hamstack_winlink_enabled: false
 hamstack_winlink_version: 1.0.0
+# SHA-256 digests of the upstream Pat release packages, keyed by Debian
+# architecture. Update these alongside hamstack_winlink_version.
+hamstack_winlink_package_checksums:
+  amd64: sha256:3dec3c2f0802707e7789c6752e955f141365e14923cc5c6331ddb8af48663d32
+  arm64: sha256:15f19a5e264b038c540f7b3cd7f8535ac250ca711672fc69230ef0248ca53730
+  armhf: sha256:f42eebecf7f89e1162d5406040ffc7738424e9baae88d7a67f20ed39f750e921
+  i386: sha256:2f4b0465c6758b110f6966cc627bc7afa7e27c711c100d5c66e9e4d0a8a513f3
+# Refuse to install a Pat package whose digest is not listed above.
+hamstack_winlink_require_checksum: true
+hamstack_winlink_package_cache_dir: "{{ (hamstack_cache_dir | default('/var/cache/hamstack')) ~ '/packages' }}"
 hamstack_winlink_user: hamstack-winlink
 hamstack_winlink_group: hamstack-winlink
 hamstack_winlink_manage_user: true

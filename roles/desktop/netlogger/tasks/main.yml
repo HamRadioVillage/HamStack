@@ -8,11 +8,20 @@
           - ansible_facts['os_family'] == 'Debian'
           - hamstack_netlogger_user | length > 0
           - (hamstack_netlogger_package_url | length > 0) or (hamstack_netlogger_package_src | length > 0)
+          - >-
+            hamstack_netlogger_package_url | length == 0
+            or hamstack_netlogger_package_url is match('^https://')
+          - >-
+            hamstack_netlogger_package_checksum | length == 0
+            or hamstack_netlogger_package_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           NetLogger requires a Debian-family desktop and either
-          hamstack_netlogger_package_url or hamstack_netlogger_package_src.
-          Upstream currently distributes Linux packages through its download
-          form, so HamStack does not scrape that workflow.
+          hamstack_netlogger_package_url (HTTPS) or
+          hamstack_netlogger_package_src. Optional
+          hamstack_netlogger_package_checksum values must use
+          sha256:<64-hex-digest>. Upstream currently distributes Linux
+          packages through its download form, so HamStack does not scrape
+          that workflow.
 
     - name: Install optional NetLogger prerequisites
       ansible.builtin.apt:
@@ -34,6 +43,11 @@
       ansible.builtin.get_url:
         url: "{{ hamstack_netlogger_package_url }}"
         dest: "{{ hamstack_netlogger_cache_dir }}/{{ hamstack_netlogger_package_filename }}"
+        checksum: >-
+          {{ hamstack_netlogger_package_checksum
+             if hamstack_netlogger_package_checksum | length > 0 else omit }}
+        owner: root
+        group: root
         mode: '0644'
       when: hamstack_netlogger_package_url | length > 0
 

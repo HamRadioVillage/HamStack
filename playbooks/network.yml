@@ -2,6 +2,9 @@
 - name: Apply HamStack network-device configuration
   hosts: network_devices
   gather_facts: false
+  # Network backends talk to devices over SSH/API; nothing here needs sudo,
+  # and the RouterOS API tasks run on the controller.
+  become: false
 
   pre_tasks:
     - name: Check for optional HamStack Vault file

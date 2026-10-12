@@ -19,4 +19,13 @@ The Winlink secure-login password can be stored as:
 vault_hamstack_winlink_password: '...'
 ```
 
+## Package verification
+
+The Pat `.deb` is downloaded into the root-owned HamStack package cache
+(`hamstack_winlink_package_cache_dir`) and its SHA-256 digest is checked
+against `hamstack_winlink_package_checksums` before installation. When
+`hamstack_winlink_version` changes, add the matching upstream release digests
+for each architecture; set `hamstack_winlink_require_checksum: false` only for
+a deliberate, unverified install.
+
 Pat upstream: https://github.com/la5nta/pat

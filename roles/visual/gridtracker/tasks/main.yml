@@ -70,9 +70,22 @@
       ansible.builtin.assert:
         that:
           - _hamstack_gridtracker_url | default('') | length > 0
+          - _hamstack_gridtracker_url | default('') is match('^https://')
+          - >-
+            hamstack_gridtracker_package_checksum | length == 0
+            or hamstack_gridtracker_package_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
-          Could not discover a GridTracker2 Debian package. Pin
-          hamstack_gridtracker_package_url or hamstack_gridtracker_version.
+          Could not discover a GridTracker2 Debian package, or the package URL
+          is not HTTPS. Pin hamstack_gridtracker_package_url or
+          hamstack_gridtracker_version. Optional
+          hamstack_gridtracker_package_checksum values must use
+          sha256:<64-hex-digest>.
+      when: hamstack_gridtracker_install | bool
+
+    - name: Remember GridTracker package cache path
+      ansible.builtin.set_fact:
+        _hamstack_gridtracker_package: >-
+          {{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/{{ _hamstack_gridtracker_url | basename }}
       when: hamstack_gridtracker_install | bool
 
     - name: Install package-install prerequisites
@@ -93,13 +106,18 @@
     - name: Download GridTracker2 Debian package
       ansible.builtin.get_url:
         url: "{{ _hamstack_gridtracker_url }}"
-        dest: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/gridtracker2.deb"
+        dest: "{{ _hamstack_gridtracker_package }}"
+        checksum: >-
+          {{ hamstack_gridtracker_package_checksum
+             if hamstack_gridtracker_package_checksum | length > 0 else omit }}
+        owner: root
+        group: root
         mode: "0644"
       when: hamstack_gridtracker_install | bool
 
     - name: Install GridTracker2 Debian package
       ansible.builtin.apt:
-        deb: "{{ hamstack_cache_dir | default('/var/cache/hamstack') }}/packages/gridtracker2.deb"
+        deb: "{{ _hamstack_gridtracker_package }}"
         state: present
       when: hamstack_gridtracker_install | bool
 

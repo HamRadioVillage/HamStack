@@ -24,8 +24,13 @@ Prerequisites on the Ansible controller:
 - `librouteros` (in `requirements-controller.txt`).
 
 The router must have the RouterOS API enabled. The default role settings use
-API-SSL on port 8729 with certificate validation disabled for lab/event
-self-signed deployments. Put the password in Vault.
+API-SSL on port 8729 with certificate validation enabled, so the controller
+must trust the router's API-SSL certificate (for example by importing the
+router's CA into the controller trust store or by issuing the router a
+certificate from a CA the controller already trusts). Set
+`hamstack_routeros_api_validate_certs: false` only for a deliberate
+self-signed lab deployment; without validation an on-path attacker can capture
+the RouterOS administrative credential. Put the password in Vault.
 
 HamStack translates the common `address`, `interface`/`device`, `target`, `gateway`, `name`, and optional `comment` fields into RouterOS-native address/route entries. Example:
 

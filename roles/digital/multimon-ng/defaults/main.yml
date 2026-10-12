@@ -8,5 +8,14 @@ hamstack_multimon_ng_decoders:
 hamstack_multimon_ng_input_type: raw
 hamstack_multimon_ng_source_command: ''
 hamstack_multimon_ng_service_enabled: false
+# Unprivileged account that runs the managed decoder service. The account is
+# created as a system user with audio/plugdev access for sound cards and
+# udev-managed SDR dongles.
+hamstack_multimon_ng_user: hamstack-multimon
+hamstack_multimon_ng_group: hamstack-multimon
+hamstack_multimon_ng_manage_user: true
+hamstack_multimon_ng_user_groups:
+  - audio
+  - plugdev
 hamstack_multimon_ng_output_file: "{{ (hamstack_log_dir | default('/var/log/hamstack')) ~ '/multimon-ng.log' }}"
 hamstack_multimon_ng_extra_args: []

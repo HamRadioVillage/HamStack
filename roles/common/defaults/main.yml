@@ -23,15 +23,15 @@ hamstack_devices: {}
 hamstack_radios: {}
 hamstack_common_manage_packages: true
 hamstack_common_packages:
-- curl
-- git
-- htop
-- jq
-- rsync
-- tmux
-- unzip
-- vim
-- wget
+  - curl
+  - git
+  - htop
+  - jq
+  - rsync
+  - tmux
+  - unzip
+  - vim
+  - wget
 hamstack_common_extra_packages: []
 hamstack_common_apt_cache_valid_time: 3600
 hamstack_common_manage_directories: true

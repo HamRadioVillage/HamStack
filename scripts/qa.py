@@ -111,6 +111,50 @@ def check_markdown_links() -> None:
                 error(f"Broken Markdown link: {path.relative_to(ROOT)} -> {target}")
 
 
+def _iter_tasks(node):
+    """Yield every task-like mapping in a loaded tasks file, descending into blocks."""
+    if isinstance(node, list):
+        for item in node:
+            yield from _iter_tasks(item)
+    elif isinstance(node, dict):
+        yield node
+        for key in ("block", "rescue", "always"):
+            if key in node:
+                yield from _iter_tasks(node[key])
+
+
+def check_role_file_references() -> None:
+    """Every template/copy src that is a literal path must exist in the role."""
+    modules = {
+        "ansible.builtin.template": "templates",
+        "template": "templates",
+        "ansible.builtin.copy": "files",
+        "copy": "files",
+    }
+    for tasks_dir in sorted((ROOT / "roles").rglob("tasks")):
+        if not tasks_dir.is_dir():
+            continue
+        role_dir = tasks_dir.parent
+        for path in sorted(tasks_dir.glob("*.yml")):
+            try:
+                data = yaml.load(path.read_text(encoding="utf-8"), Loader=UniqueKeyLoader)
+            except Exception:
+                continue  # reported by check_yaml
+            for task in _iter_tasks(data):
+                for module, subdir in modules.items():
+                    args = task.get(module)
+                    if not isinstance(args, dict):
+                        continue
+                    src = args.get("src")
+                    if not isinstance(src, str) or "{{" in src or src.startswith("/"):
+                        continue
+                    if not (role_dir / subdir / src).exists():
+                        error(
+                            f"{path.relative_to(ROOT)} references missing "
+                            f"{subdir}/{src}"
+                        )
+
+
 def check_role_layout() -> None:
     for path in (ROOT / "roles").rglob("main.yml"):
         rel = path.relative_to(ROOT / "roles")
@@ -328,6 +372,7 @@ def main() -> int:
     check_shell()
     check_markdown_links()
     check_role_layout()
+    check_role_file_references()
     check_variable_reference()
     check_role_documentation_consistency()
     check_deprecated_paths()

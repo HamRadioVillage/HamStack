@@ -38,16 +38,42 @@
         shell: /usr/sbin/nologin
       when: hamstack_winlink_manage_user | bool
 
+    - name: Resolve Pat package checksum
+      ansible.builtin.set_fact:
+        _hamstack_pat_checksum: "{{ hamstack_winlink_package_checksums.get(_hamstack_pat_arch | trim, '') }}"
+        _hamstack_pat_package: "{{ hamstack_winlink_package_cache_dir }}/pat_{{ hamstack_winlink_version }}_{{ _hamstack_pat_arch | trim }}.deb"
+
+    - name: Verify a Pat package checksum is known
+      ansible.builtin.assert:
+        that:
+          - not (hamstack_winlink_require_checksum | bool) or _hamstack_pat_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
+        fail_msg: >-
+          No sha256 checksum is listed in hamstack_winlink_package_checksums for
+          Pat {{ hamstack_winlink_version }} on {{ _hamstack_pat_arch | trim }}.
+          Add the upstream release digest, or set
+          hamstack_winlink_require_checksum: false to install unverified.
+
+    - name: Create root-owned HamStack package cache
+      ansible.builtin.file:
+        path: "{{ hamstack_winlink_package_cache_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Download Pat Debian package
       ansible.builtin.get_url:
         url: >-
           https://github.com/la5nta/pat/releases/download/v{{ hamstack_winlink_version }}/pat_{{ hamstack_winlink_version }}_linux_{{ _hamstack_pat_arch | trim }}.deb
-        dest: "/tmp/pat_{{ hamstack_winlink_version }}_{{ _hamstack_pat_arch | trim }}.deb"
+        dest: "{{ _hamstack_pat_package }}"
+        checksum: "{{ _hamstack_pat_checksum if _hamstack_pat_checksum | length > 0 else omit }}"
+        owner: root
+        group: root
         mode: '0644'
 
     - name: Install Pat Debian package
       ansible.builtin.apt:
-        deb: "/tmp/pat_{{ hamstack_winlink_version }}_{{ _hamstack_pat_arch | trim }}.deb"
+        deb: "{{ _hamstack_pat_package }}"
         state: present
 
     - name: Create Pat persistent directories

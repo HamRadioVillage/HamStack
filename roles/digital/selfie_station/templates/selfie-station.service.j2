@@ -5,11 +5,20 @@ After=network.target sound.target
 [Service]
 Type=simple
 User={{ hamstack_selfie_station_user }}
-SupplementaryGroups=audio dialout video input
-WorkingDirectory={{ hamstack_selfie_station_install_dir }}
+Group={{ hamstack_selfie_station_group }}
+SupplementaryGroups={{ hamstack_selfie_station_user_groups | join(' ') }}
+WorkingDirectory={{ hamstack_selfie_station_data_dir }}
 ExecStart={{ hamstack_selfie_station_venv_dir }}/bin/python3 {{ hamstack_selfie_station_install_dir }}/selfie_station.py
 Restart=on-failure
 RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+ReadWritePaths={{ hamstack_selfie_station_data_dir }}
 
 [Install]
 WantedBy=multi-user.target

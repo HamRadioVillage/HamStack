@@ -42,12 +42,12 @@ OVERLAY_TEXT = {{ hamstack_selfie_station_overlay_template | to_json }}
 TX_ENABLED = {{ 'True' if hamstack_selfie_station_transmit_enabled | bool else 'False' }}
 
 SSTV_MODE = {{ hamstack_selfie_station_sstv_mode | default('Robot36', true) | to_json }}
-SAMPLE_RATE = {{ hamstack_selfie_station_sample_rate }}
+SAMPLE_RATE = {{ hamstack_selfie_station_sample_rate | int }}
 BITS_PER_SAMPLE = 16
 
 CW_ENABLED = {{ 'True' if hamstack_selfie_station_cw_enabled | bool else 'False' }}
-CW_WPM = {{ hamstack_selfie_station_cw_wpm }}
-CW_TONE_HZ = {{ hamstack_selfie_station_cw_tone_hz }}
+CW_WPM = {{ hamstack_selfie_station_cw_wpm | int }}
+CW_TONE_HZ = {{ hamstack_selfie_station_cw_tone_hz | float }}
 CW_AMPLITUDE = 0.30
 CW_TO_SSTV_GAP_SECONDS = 0.60
 
@@ -55,8 +55,8 @@ AIOC_SERIAL_DEVICE = {{ _hamstack_selfie_aioc_serial | to_json if _hamstack_self
 AIOC_AUDIO_DEVICE = {{ _hamstack_selfie_aioc_audio | to_json if _hamstack_selfie_aioc_audio else 'None' }}
 AUDIO_DEVICE_MATCH = "AllInOneCable"
 
-PTT_LEAD_SECONDS = {{ hamstack_selfie_station_ptt_lead_seconds }}
-PTT_TAIL_SECONDS = {{ hamstack_selfie_station_ptt_tail_seconds }}
+PTT_LEAD_SECONDS = {{ hamstack_selfie_station_ptt_lead_seconds | float }}
+PTT_TAIL_SECONDS = {{ hamstack_selfie_station_ptt_tail_seconds | float }}
 
 # ---------------------------------------------------------------------------
 # CAMERA / PEDAL / FILE SETTINGS
@@ -64,7 +64,7 @@ PTT_TAIL_SECONDS = {{ hamstack_selfie_station_ptt_tail_seconds }}
 
 PEDAL_DEVICE = {{ _hamstack_selfie_trigger_device | to_json }}
 PEDAL_KEY = getattr(ecodes, {{ hamstack_selfie_station_trigger_key | to_json }})
-CAPTURE_SIZE = ({{ hamstack_selfie_station_camera_width }}, {{ hamstack_selfie_station_camera_height }})
+CAPTURE_SIZE = ({{ hamstack_selfie_station_camera_width | int }}, {{ hamstack_selfie_station_camera_height | int }})
 CAMERA_SETTLE_SECONDS = 2.0
 MIN_TRIGGER_INTERVAL_SECONDS = 2.0
 

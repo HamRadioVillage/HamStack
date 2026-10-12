@@ -10,6 +10,22 @@
           The Selfie Station role supports Debian-family
           Raspberry Pi systems.
 
+    - name: Create Selfie Station service group
+      ansible.builtin.group:
+        name: "{{ hamstack_selfie_station_group }}"
+        system: true
+      when: hamstack_selfie_station_manage_user | bool
+
+    - name: Create Selfie Station service account
+      ansible.builtin.user:
+        name: "{{ hamstack_selfie_station_user }}"
+        group: "{{ hamstack_selfie_station_group }}"
+        system: true
+        create_home: false
+        home: "{{ hamstack_selfie_station_data_dir }}"
+        shell: /usr/sbin/nologin
+      when: hamstack_selfie_station_manage_user | bool
+
     - name: Verify Selfie Station service account exists
       ansible.builtin.getent:
         database: passwd
@@ -18,11 +34,7 @@
     - name: Add Selfie Station user to hardware groups
       ansible.builtin.user:
         name: "{{ hamstack_selfie_station_user }}"
-        groups:
-          - audio
-          - dialout
-          - video
-          - input
+        groups: "{{ hamstack_selfie_station_user_groups }}"
         append: true
 
     - name: Install Selfie Station system packages
@@ -41,11 +53,12 @@
         update_cache: true
         cache_valid_time: "{{ hamstack_common_apt_cache_valid_time | default(3600) }}"
 
-    - name: Create Selfie Station install directory
+    - name: Create root-owned Selfie Station install directory
       ansible.builtin.file:
         path: "{{ hamstack_selfie_station_install_dir }}"
         state: directory
-        owner: "{{ hamstack_selfie_station_user }}"
+        owner: root
+        group: root
         mode: "0755"
 
     - name: Create Selfie Station Python environment with system packages
@@ -65,6 +78,7 @@
         path: "{{ item }}"
         state: directory
         owner: "{{ hamstack_selfie_station_user }}"
+        group: "{{ hamstack_selfie_station_group }}"
         mode: "0755"
       loop:
         - "{{ hamstack_selfie_station_data_dir }}"
@@ -103,7 +117,8 @@
       ansible.builtin.template:
         src: selfie_station.py.j2
         dest: "{{ hamstack_selfie_station_install_dir }}/selfie_station.py"
-        owner: "{{ hamstack_selfie_station_user }}"
+        owner: root
+        group: root
         mode: "0755"
       notify: Restart selfie station
 

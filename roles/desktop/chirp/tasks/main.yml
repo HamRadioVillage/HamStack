@@ -159,6 +159,7 @@
         cmd: >-
           pipx install --system-site-packages --force
           {{ hamstack_chirp_cache_dir }}/chirp-{{ hamstack_chirp_version }}.whl
+      become: true
       become_user: "{{ hamstack_chirp_user }}"
       changed_when: true
       when:

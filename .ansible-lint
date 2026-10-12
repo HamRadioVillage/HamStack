@@ -10,3 +10,8 @@ exclude_paths:
 # as a warning without making the basic profile unusable.
 warn_list:
   - role-name
+  # HamStack variables are intentionally prefixed hamstack_<role>_ rather than
+  # <role>_ so composable roles share one documented namespace (see AGENTS.md).
+  - var-naming[no-role-prefix]
+  # Long Jinja/URL lines are tolerated by .yamllint (line-length level: warning).
+  - yaml[line-length]

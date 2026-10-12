@@ -41,6 +41,11 @@ releases when needed to establish a durable public contract.
   from deploying.
 - `scripts/qa.py` now fails when a role task references a template or file the
   role does not ship.
+- Repository CI now passes `yamllint` and `ansible-lint`: a list-indentation
+  error in `roles/common/defaults/main.yml` is fixed, tasks that set
+  `become_user` declare `become` explicitly, and `.ansible-lint` downgrades the
+  `var-naming[no-role-prefix]` and `yaml[line-length]` rules to warnings
+  because the `hamstack_*` variable namespace is intentional.
 
 ## [0.1.0] - 2026-09-28
 

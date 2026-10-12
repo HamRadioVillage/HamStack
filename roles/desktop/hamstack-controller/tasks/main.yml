@@ -56,12 +56,14 @@
       ansible.builtin.command:
         cmd: "python3 -m venv {{ _hamstack_controller_venv }}"
         creates: "{{ _hamstack_controller_venv }}/bin/python"
+      become: true
       become_user: "{{ hamstack_controller_user }}"
 
     - name: Install HamStack controller Python requirements
       ansible.builtin.pip:
         requirements: "{{ _hamstack_controller_repo }}/requirements-controller.txt"
         virtualenv: "{{ _hamstack_controller_venv }}"
+      become: true
       become_user: "{{ hamstack_controller_user }}"
       when: hamstack_controller_install_python_requirements | bool
 
@@ -71,6 +73,7 @@
           {{ _hamstack_controller_venv }}/bin/ansible-galaxy collection install
           -r {{ _hamstack_controller_repo }}/requirements.yml
           --collections-path {{ _hamstack_controller_home }}/.ansible/collections
+      become: true
       become_user: "{{ hamstack_controller_user }}"
       changed_when: false
       when: hamstack_controller_install_collections | bool

@@ -89,7 +89,7 @@
     owner: "{{ hamstack_allstar_config_owner }}"
     group: "{{ hamstack_allstar_config_group }}"
     mode: '0640'
-    backup: true
+    backup: false
   no_log: true
   diff: false
   notify: Restart AllStar Asterisk

@@ -100,7 +100,7 @@
     option: Hardware
     value: "{{ hamstack_wpsd_modem }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   notify:
     - Refresh WPSD system cache
     - Restart WPSD MMDVMHost
@@ -116,7 +116,7 @@
     option: Callsign
     value: "{{ hamstack_wpsd_callsign }}"
     no_extra_spaces: false
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   notify: Refresh WPSD system cache
 
 - name: Configure WPSD dashboard timezone
@@ -126,7 +126,7 @@
     option: Timezone
     value: "{{ hamstack_wpsd_timezone }}"
     no_extra_spaces: false
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   notify: Refresh WPSD system cache
 
 - name: Configure optional WPSD dashboard language
@@ -136,7 +136,7 @@
     option: DashLanguage
     value: "{{ hamstack_wpsd_dashboard_language }}"
     no_extra_spaces: false
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_dashboard_language | length > 0
   notify: Refresh WPSD system cache
 
@@ -147,10 +147,11 @@
     option: "{{ item.key }}"
     value: "{{ item.value }}"
     no_extra_spaces: false
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop: "{{ hamstack_wpsd_dashboard_extra_settings | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
+  no_log: true
   notify: Refresh WPSD system cache
 
 - name: Configure WPSD MMDVMHost display type
@@ -160,7 +161,7 @@
     option: Display
     value: "{{ 'OLED' if hamstack_wpsd_display == 'oled' else 'None' }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   notify:
     - Refresh WPSD system cache
     - Refresh WPSD display driver
@@ -173,7 +174,7 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop:
     - option: Type
       value: "{{ hamstack_wpsd_oled_type | int }}"
@@ -204,7 +205,7 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop:
     - option: Callsign
       value: "{{ hamstack_wpsd_callsign }}"
@@ -221,7 +222,7 @@
     option: Id
     value: "{{ hamstack_wpsd_dmr_id }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_dmr_id is not none
   notify:
     - Refresh WPSD system cache
@@ -234,7 +235,7 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop:
     - option: RXFrequency
       value: "{{ ((hamstack_wpsd_rx_frequency_mhz | float) * 1000000) | round | int }}"
@@ -255,7 +256,7 @@
     option: Latitude
     value: "{{ hamstack_wpsd_latitude }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_latitude is not none
   notify:
     - Refresh WPSD system cache
@@ -268,7 +269,7 @@
     option: Longitude
     value: "{{ hamstack_wpsd_longitude }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_longitude is not none
   notify:
     - Refresh WPSD system cache
@@ -281,7 +282,7 @@
     option: URL
     value: "{{ hamstack_wpsd_url }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_url | length > 0
   notify:
     - Refresh WPSD system cache
@@ -294,7 +295,7 @@
     option: RXOffset
     value: "{{ hamstack_wpsd_rx_offset_hz }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_rx_offset_hz is not none
   notify:
     - Refresh WPSD system cache
@@ -307,7 +308,7 @@
     option: TXOffset
     value: "{{ hamstack_wpsd_tx_offset_hz }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when: hamstack_wpsd_tx_offset_hz is not none
   notify:
     - Refresh WPSD system cache
@@ -332,7 +333,7 @@
     option: Enable
     value: "{{ 1 if item.name in hamstack_wpsd_modes else 0 }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop: "{{ hamstack_wpsd_mode_sections | default([]) }}"
   loop_control:
     label: "{{ item.name }}"
@@ -348,7 +349,7 @@
     option: Id
     value: "{{ hamstack_wpsd_nxdn_id }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when:
     - "'nxdn' in hamstack_wpsd_modes"
     - hamstack_wpsd_nxdn_id is not none
@@ -363,7 +364,7 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop:
     - {option: Enable, value: 1}
     - {option: Type, value: Gateway}
@@ -385,7 +386,7 @@
     option: Enabled
     value: 0
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop:
     - DMR Network 1
     - DMR Network 2
@@ -408,7 +409,7 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop:
     - option: Enabled
       value: 1
@@ -441,7 +442,7 @@
     option: Password
     value: "{{ vault_hamstack_wpsd_dmr_custom_network_password }}"
     no_extra_spaces: true
-    backup: true
+    backup: false
   no_log: true
   when: hamstack_wpsd_manage_dmr_custom_network | bool
   notify:
@@ -456,7 +457,7 @@
     option: Options
     value: "{{ hamstack_wpsd_dmr_custom_network_options }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when:
     - hamstack_wpsd_manage_dmr_custom_network | bool
     - hamstack_wpsd_dmr_custom_network_options | string | length > 0
@@ -471,7 +472,7 @@
     section: DMR Network Custom
     option: Options
     state: absent
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   when:
     - hamstack_wpsd_manage_dmr_custom_network | bool
     - hamstack_wpsd_dmr_custom_network_options | string | length == 0
@@ -487,7 +488,7 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop: "{{ hamstack_wpsd_dmr_custom_network_rules }}"
   loop_control:
     label: "DMR Network Custom.{{ item.option }}"
@@ -504,10 +505,11 @@
     option: "{{ item.option }}"
     value: "{{ item.value }}"
     no_extra_spaces: true
-    backup: true
+    backup: "{{ hamstack_wpsd_config_backups | bool }}"
   loop: "{{ hamstack_wpsd_mmdvmhost_extra }}"
   loop_control:
     label: "{{ item.section }}.{{ item.option }}"
+  no_log: true
   notify:
     - Refresh WPSD system cache
     - Restart WPSD MMDVMHost

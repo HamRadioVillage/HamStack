@@ -55,6 +55,15 @@
         group: root
         recurse: true
 
+    - name: Keep Cloudlog configuration readable only by root and the web service
+      ansible.builtin.file:
+        path: "{{ hamstack_cloudlog_install_dir }}/application/config"
+        state: directory
+        owner: root
+        group: www-data
+        mode: "u=rwX,g=rwX,o="
+        recurse: true
+
     - name: Grant the web service write access only to Cloudlog runtime paths
       ansible.builtin.file:
         path: "{{ hamstack_cloudlog_install_dir }}/{{ item }}"
@@ -64,7 +73,6 @@
         mode: "u=rwX,g=rwX,o=rX"
         recurse: true
       loop:
-        - application/config
         - application/logs
         - assets/qslcard
         - assets/json

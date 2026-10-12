@@ -71,7 +71,9 @@
         that:
           - _hamstack_gridtracker_url | default('') | length > 0
           - _hamstack_gridtracker_url | default('') is match('^https://')
-          - hamstack_gridtracker_package_checksum | length == 0 or hamstack_gridtracker_package_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
+          - >-
+            hamstack_gridtracker_package_checksum | length == 0
+            or hamstack_gridtracker_package_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           Could not discover a GridTracker2 Debian package, or the package URL
           is not HTTPS. Pin hamstack_gridtracker_package_url or
@@ -105,7 +107,9 @@
       ansible.builtin.get_url:
         url: "{{ _hamstack_gridtracker_url }}"
         dest: "{{ _hamstack_gridtracker_package }}"
-        checksum: "{{ hamstack_gridtracker_package_checksum if hamstack_gridtracker_package_checksum | length > 0 else omit }}"
+        checksum: >-
+          {{ hamstack_gridtracker_package_checksum
+             if hamstack_gridtracker_package_checksum | length > 0 else omit }}
         owner: root
         group: root
         mode: "0644"

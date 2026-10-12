@@ -37,7 +37,9 @@
       ansible.builtin.assert:
         that:
           - _hamstack_js8call_url | trim is match('^https://')
-          - not (hamstack_js8call_require_checksum | bool) or _hamstack_js8call_checksum | trim is match('^sha256:[0-9A-Fa-f]{64}$')
+          - >-
+            not (hamstack_js8call_require_checksum | bool)
+            or _hamstack_js8call_checksum | trim is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           JS8Call must be downloaded over HTTPS with a configured sha256
           checksum for this architecture (hamstack_js8call_x86_64_checksum or
@@ -65,7 +67,9 @@
       ansible.builtin.get_url:
         url: "{{ _hamstack_js8call_url | trim }}"
         dest: "{{ hamstack_js8call_install_dir }}/JS8Call.AppImage"
-        checksum: "{{ _hamstack_js8call_checksum | trim if _hamstack_js8call_checksum | trim | length > 0 else omit }}"
+        checksum: >-
+          {{ _hamstack_js8call_checksum | trim
+             if _hamstack_js8call_checksum | trim | length > 0 else omit }}
         owner: root
         group: root
         mode: '0755'

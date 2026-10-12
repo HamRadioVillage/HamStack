@@ -81,7 +81,9 @@
         that:
           - hamstack_linbpq_binary_url | length > 0
           - hamstack_linbpq_binary_url is match('^https://')
-          - hamstack_linbpq_binary_checksum | length == 0 or hamstack_linbpq_binary_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
+          - >-
+            hamstack_linbpq_binary_checksum | length == 0
+            or hamstack_linbpq_binary_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
         fail_msg: >-
           HamStack does not redistribute LinBPQ. Set hamstack_linbpq_binary_url
           to a compatible upstream binary served over HTTPS, or set

@@ -114,7 +114,10 @@ versions and both legacy wireless and newer Wi-Fi stacks.
 
 RouterOS API modules execute on the Ansible controller and require
 `librouteros`, supplied by `requirements-controller.txt`. API-SSL on port 8729
-is the default HamStack connection model.
+with certificate validation is the default HamStack connection model; the
+controller must trust the router's API-SSL certificate, or the operator must
+explicitly set `hamstack_routeros_api_validate_certs: false` for a self-signed
+lab router.
 
 Both backends can change the management network underneath the active Ansible
 session. Test on spare hardware and keep a recovery path. Advanced policy

@@ -36,7 +36,8 @@ The import overwrites matching record sets but does not wipe unrelated/manual
 records from the zone. DHCP, split-horizon policy, complex views/apps, and
 record deletion/reconciliation remain later work.
 
-Required Vault value:
+Required Vault value (at least 12 characters; it protects the DNS
+administration console):
 
 ```yaml
 vault_hamstack_technitium_admin_password: 'use-a-real-secret'

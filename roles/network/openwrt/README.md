@@ -25,5 +25,12 @@ radio identifiers for their hardware.
 `hamstack_network_extra_settings.uci_commands` is an escape hatch for native UCI
 commands that have not yet earned first-class variables.
 
+The rendered UCI script runs in a root shell on the router. HamStack therefore
+validates every identifier it uses as a UCI section name (LAN, Wi-Fi, radio,
+route, and firewall-zone names, plus `forward_to` targets) against
+`^[A-Za-z0-9_]+$` before applying anything; free-form values such as SSIDs,
+keys, and addresses are shell-quoted. `uci_commands` entries are intentionally
+passed through unvalidated.
+
 **Network configuration can disconnect Ansible.** Test on a spare router before
 using it against production/event infrastructure.

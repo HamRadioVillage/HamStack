@@ -8,6 +8,7 @@ __pycache__/
 .pytest_cache/
 
 # Ansible local state / facts
+.ansible/
 fact_cache/
 *.vault-password
 .vault_pass

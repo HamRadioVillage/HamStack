@@ -19,7 +19,7 @@ Created inventory/local from inventory/example.
 Next:
   1. Edit inventory/local/hosts.yml.
   2. Rename inventory/local/host_vars/example-node.yml to match your host.
-  3. Edit inventory/local/group_vars/all.yml.
+  3. Edit inventory/local/group_vars/all/main.yml.
   4. Create inventory/local/group_vars/all/vault.yml with ansible-vault if you need secrets.
      Template: inventory/local/group_vars/all/vault.yml.example
   5. Run: ansible all -m ping

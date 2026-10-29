@@ -64,7 +64,7 @@ At minimum:
 2. set the node's real IP address or DNS name;
 3. rename `inventory/local/host_vars/example-node.yml` to match your hostname;
 4. set your callsign and timezone in
-   `inventory/local/group_vars/all.yml`;
+   `inventory/local/group_vars/all/main.yml`;
 5. enable the role(s) you actually want in that host's variables.
 
 Do not enable every role just because it exists.

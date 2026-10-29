@@ -27,16 +27,23 @@ Then:
 
 1. Edit `inventory/local/hosts.yml` and replace the example node with your real host(s).
 2. Rename `inventory/local/host_vars/example-node.yml` so the filename matches the inventory hostname it configures.
-3. Edit `inventory/local/group_vars/all.yml` with site-wide values such as callsign, grid, and timezone.
+3. Edit `inventory/local/group_vars/all/main.yml` with site-wide values such as callsign, grid, and timezone.
 4. Edit each host's `host_vars/<hostname>.yml` to describe attached hardware and host-specific role settings.
 5. If a role needs credentials, create `inventory/local/group_vars/all/vault.yml` with Ansible Vault.
 6. Test the inventory with `ansible all -m ping`.
+
+Site variables live in `group_vars/all/main.yml`, inside the same directory as the
+Vault file. When both a `group_vars/all.yml` file and a `group_vars/all/` directory
+exist, Ansible loads only the directory and silently ignores the file. Inventories
+created before this layout should move their site file into `group_vars/all/`;
+`playbooks/site.yml`, `playbooks/bootstrap.yml`, `playbooks/network.yml`, and
+`scripts/configure.py` validation refuse to continue while the old file is present.
 
 `inventory/local/` is ignored by Git and is the normal place for real deployment data.
 
 ## Secrets
 
-Do not put real credentials in `group_vars/all.yml`, role defaults, README files, or the tracked example inventory.
+Do not put real credentials in `group_vars/all/main.yml`, role defaults, README files, or the tracked example inventory.
 
 Create an encrypted local vault:
 
@@ -53,7 +60,7 @@ HamStack uses these conceptual layers:
 ```text
 role defaults
     ↓
-site variables in inventory/local/group_vars/all.yml
+site variables in inventory/local/group_vars/all/main.yml
     ↓
 host variables in inventory/local/host_vars/<host>.yml
     ↓

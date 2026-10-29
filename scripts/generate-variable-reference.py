@@ -79,8 +79,8 @@ def infer_purpose(name: str, role: str) -> str:
 
 def collect() -> dict[str, list[tuple[str, Any, str]]]:
     groups: dict[str, list[tuple[str, Any, str]]] = {}
-    site = load_yaml(ROOT / "inventory" / "example" / "group_vars" / "all.yml")
-    groups["site/global"] = [(k, v, "inventory/example/group_vars/all.yml") for k, v in site.items() if k.startswith("hamstack_")]
+    site = load_yaml(ROOT / "inventory" / "example" / "group_vars" / "all" / "main.yml")
+    groups["site/global"] = [(k, v, "inventory/example/group_vars/all/main.yml") for k, v in site.items() if k.startswith("hamstack_")]
     for defaults in sorted((ROOT / "roles").rglob("defaults/main.yml")):
         role = defaults.parent.parent.relative_to(ROOT / "roles").as_posix()
         data = load_yaml(defaults)

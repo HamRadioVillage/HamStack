@@ -35,8 +35,11 @@ EXAMPLE = ROOT / "inventory" / "example"
 LOCAL = ROOT / "inventory" / "local"
 HOSTS_FILE = LOCAL / "hosts.yml"
 NETWORK_FILE = LOCAL / "network.yml"
-SITE_FILE = LOCAL / "group_vars" / "all.yml"
 VAULT_DIR = LOCAL / "group_vars" / "all"
+# Site variables live inside group_vars/all/: when both group_vars/all.yml and
+# group_vars/all/ exist, Ansible loads only the directory.
+SITE_FILE = VAULT_DIR / "main.yml"
+LEGACY_SITE_FILE = LOCAL / "group_vars" / "all.yml"
 VAULT_FILE = VAULT_DIR / "vault.yml"
 VAULT_TEMPLATE = VAULT_DIR / "vault.yml.example"
 HOST_VARS = LOCAL / "host_vars"
@@ -656,6 +659,12 @@ def validate() -> int:
             errors.append("No hosts are defined.")
         if "example-node" in hosts:
             warnings.append("example-node is still present in the local inventory.")
+
+        if LEGACY_SITE_FILE.exists():
+            errors.append(
+                "inventory/local/group_vars/all.yml is ignored by Ansible next to group_vars/all/; "
+                "move it to inventory/local/group_vars/all/main.yml."
+            )
 
         site = load_yaml(SITE_FILE, {})
         if site.get("hamstack_callsign") in {"", "N0CALL", None}:

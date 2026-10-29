@@ -102,7 +102,7 @@ The common split is:
 inventory/local/hosts.yml
     Which Linux nodes exist and how Ansible reaches them.
 
-inventory/local/group_vars/all.yml
+inventory/local/group_vars/all/main.yml
     Site-wide defaults such as callsign, timezone, event name.
 
 inventory/local/host_vars/<hostname>.yml

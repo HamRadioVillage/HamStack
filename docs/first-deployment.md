@@ -83,7 +83,7 @@ hamstack_gatus_tls_host: hamstack-demo
 hamstack_gatus_https_port: 8443
 ```
 
-Edit `inventory/local/group_vars/all.yml` and set at least:
+Edit `inventory/local/group_vars/all/main.yml` and set at least:
 
 ```yaml
 hamstack_site_name: My HamStack

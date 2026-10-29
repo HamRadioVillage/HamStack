@@ -7,6 +7,19 @@
   become: false
 
   pre_tasks:
+    - name: Reject site variables that Ansible would ignore
+      # With both group_vars/all.yml and group_vars/all/ present, Ansible loads
+      # only the directory and silently drops the file.
+      ansible.builtin.assert:
+        that: >-
+          not ((inventory_dir ~ '/group_vars/all.yml') is file
+               and (inventory_dir ~ '/group_vars/all') is directory)
+        fail_msg: >-
+          {{ inventory_dir }}/group_vars/all.yml is ignored because
+          group_vars/all/ also exists. Move it to group_vars/all/main.yml.
+        quiet: true
+      run_once: true
+
     - name: Check for optional HamStack Vault file
       ansible.builtin.stat:
         path: "{{ inventory_dir }}/group_vars/all/vault.yml"

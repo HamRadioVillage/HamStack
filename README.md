@@ -198,7 +198,7 @@ cp -R inventory/example inventory/local
 Then edit:
 
 - `inventory/local/hosts.yml` for your real hosts;
-- `inventory/local/group_vars/all.yml` for site-wide identity and defaults;
+- `inventory/local/group_vars/all/main.yml` for site-wide identity and defaults;
 - `inventory/local/group_vars/all/vault.yml` for encrypted site secrets;
 - `inventory/local/host_vars/<hostname>.yml` for attached hardware and per-node role settings.
 

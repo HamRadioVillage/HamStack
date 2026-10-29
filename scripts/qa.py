@@ -227,6 +227,7 @@ def check_deprecated_paths() -> None:
     forbidden = [
         "inventory/local/group_vars/vault.yml",
         "inventory/example/group_vars/vault.example.yml",
+        "inventory/example/group_vars/all.yml",
         "examples/dc34-linbpq.yml",
         "roles/services/hamstack-dashboard",
         "hamstack_dashboard_",
@@ -251,6 +252,8 @@ def check_deprecated_paths() -> None:
     deprecated_files = [
         ROOT / "group_vars" / "all" / "vault.yml.example",
         ROOT / "inventory" / "example" / "group_vars" / "vault.example.yml",
+        # Shadowed by group_vars/all/; site variables live in group_vars/all/main.yml.
+        ROOT / "inventory" / "example" / "group_vars" / "all.yml",
         ROOT / "roles" / "packet" / "graywolf" / "main.yml",
     ]
     for path in deprecated_files:

@@ -37,6 +37,13 @@ releases when needed to establish a durable public contract.
 
 ### Fixed
 
+- Site variables moved from `group_vars/all.yml` to `group_vars/all/main.yml` in the
+  example inventory, configurator, and docs. Ansible loads only the `group_vars/all/`
+  directory when both exist, so the old file (callsign, grid, timezone, and other
+  site values) was silently ignored. Existing local inventories must move the file:
+  `mv inventory/local/group_vars/all.yml inventory/local/group_vars/all/main.yml`.
+  `site.yml`, `bootstrap.yml`, and `network.yml` now fail fast while the old file
+  is present next to `group_vars/all/`.
 - `digital/ft8web`: added the missing nginx template that prevented the role
   from deploying.
 - `scripts/qa.py` now fails when a role task references a template or file the

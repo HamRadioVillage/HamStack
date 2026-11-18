@@ -884,6 +884,9 @@ The current role set also includes `digital/multimon-ng`, `digital/unipager`,
 The managed multimon-ng service runs as the dedicated
 `hamstack_multimon_ng_user` account, and JS8Call AppImages are verified
 against `hamstack_js8call_x86_64_checksum` / `hamstack_js8call_aarch64_checksum`.
+UniPager installation requires an independently verified
+`hamstack_unipager_repo_key_checksum`; the role checks the downloaded key
+before configuring it as APT's repository trust anchor.
 Downloaded packages and executables must come from HTTPS URLs.
 AREDN integration is read-only monitoring of existing AREDN nodes rather than
 firmware/configuration ownership.

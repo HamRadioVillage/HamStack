@@ -311,6 +311,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_unipager_autostart` | `false` | Enable/start the managed service or desktop autostart entry. |
 | `hamstack_unipager_enabled` | `false` | Enable the digital/unipager role/capability. |
 | `hamstack_unipager_install` | `true` | Allow HamStack to install the upstream software. |
+| `hamstack_unipager_repo_key_checksum` | `` | Configuration value for unipager repo key checksum; see the digital/unipager role README for operational context. |
 | `hamstack_unipager_repo_key_url` | `https://hampager.de/debian/rwth-afu.key` | Configuration value for unipager repo key url; see the digital/unipager role README for operational context. |
 | `hamstack_unipager_repo_suite` | `unipager` | Configuration value for unipager repo suite; see the digital/unipager role README for operational context. |
 | `hamstack_unipager_repo_url` | `https://hampager.de/debian` | Configuration value for unipager repo url; see the digital/unipager role README for operational context. |

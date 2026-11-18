@@ -344,10 +344,13 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_netboot_container_name` | `hamstack-netboot` | Container name managed by this role. |
 | `hamstack_netboot_data_dir` | `{{ (hamstack_data_dir \| default('/var/lib/hamstack')) ~ '/netboot' }}` | Persistent data directory used by this role. |
 | `hamstack_netboot_enabled` | `false` | Enable the infrastructure/netboot role/capability. |
-| `hamstack_netboot_entries` | `[]` | Configuration value for netboot entries; see the infrastructure/netboot role README for operational context. |
-| `hamstack_netboot_http_port` | `8089` | Network port used by this setting. |
+| `hamstack_netboot_entries` | `[]` | Signed chain or kernel/initrd entries; each executable URL has a matching detached-signature URL. |
+| `hamstack_netboot_http_port` | `8089` | Legacy-named compatibility value used by the default HTTPS port; it does not enable plaintext HTTP. |
+| `hamstack_netboot_https_port` | `{{ hamstack_netboot_http_port }}` | Host port publishing the TLS-only netboot service. |
 | `hamstack_netboot_image` | `nginx:alpine` | Container image used by this role. |
 | `hamstack_netboot_menu_title` | `HamStack Netboot` | Configuration value for netboot menu title; see the infrastructure/netboot role README for operational context. |
+| `hamstack_netboot_tls_certificate_path` | `` | Absolute managed-host path to the operator-owned HTTPS certificate source. |
+| `hamstack_netboot_tls_private_key_path` | `` | Absolute managed-host path to the operator-owned HTTPS private-key source. |
 
 ## `infrastructure/technitium-dns`
 

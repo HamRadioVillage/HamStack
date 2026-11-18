@@ -75,6 +75,20 @@ hamstack_radios:
 # Role-specific settings belong in host_vars when they vary by node.
 # Uncomment and edit only the roles this node will use.
 #
+# Signed iPXE menu over operator-provisioned TLS. Boot clients must trust the
+# HTTPS certificate and the certificate used for detached image signatures.
+# hamstack_netboot_enabled: true
+# hamstack_netboot_tls_certificate_path: /etc/hamstack/netboot/server.crt
+# hamstack_netboot_tls_private_key_path: /etc/hamstack/netboot/server.key
+# hamstack_netboot_entries:
+#   - id: rescue
+#     label: Signed rescue environment
+#     kernel: https://netboot.example.invalid:8089/rescue/vmlinuz
+#     kernel_signature: https://netboot.example.invalid:8089/rescue/vmlinuz.sig
+#     initrd: https://netboot.example.invalid:8089/rescue/initrd.img
+#     initrd_signature: https://netboot.example.invalid:8089/rescue/initrd.img.sig
+#     args: ip=dhcp
+#
 # Graywolf can be used independently of packet/aprs as a modem/TNC/KISS layer.
 # hamstack_graywolf_enabled: true
 # hamstack_graywolf_manage_api: true

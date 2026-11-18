@@ -24,7 +24,7 @@ validation.
 - `digital/js8call` — current upstream x86-64/ARM64 AppImage install + desktop integration.
 - `digital/ft8web` — transactional local mirror of OK1CDJ FT8Web behind HTTPS.
 - `infrastructure/technitium-dns` — official Technitium DNS container, persistent state, secure bootstrap, forwarding, optional local primary zone.
-- `infrastructure/netboot` — minimal HTTP/iPXE content/menu service; no DHCP/TFTP yet.
+- `infrastructure/netboot` — TLS-only iPXE content/menu service with mandatory detached artifact signatures; no DHCP/TFTP.
 - `network/44connect` — 44Net Connect WireGuard client; split tunnel to 44Net prefixes by default.
 - `network/openwrt` — rudimentary OpenWrt/GL.iNet UCI backend for hostname, LAN/DHCP, Wi-Fi, routes, DNS, and simple firewall zones.
 - `network/routeros` — rudimentary RouterOS API backend for identity, IP addresses, routes, DNS, plus native structured API-path escape hatches.
@@ -58,7 +58,7 @@ validation.
 - `digital/ft8web` mirrors the deployed site rather than consuming a formal upstream self-host artifact.
 - `digital/unipager` installs/configures service lifecycle but leaves pager RF/network/hardware settings to UniPager.
 - `infrastructure/technitium-dns` does not automate DHCP, split-horizon apps/views, or complete DNS record management.
-- `infrastructure/netboot` deliberately omits DHCP, proxy-DHCP, and TFTP; its supported scope is HTTP/iPXE content.
+- `infrastructure/netboot` deliberately omits DHCP, proxy-DHCP, and TFTP; its supported scope is authenticated HTTPS/iPXE content and signature enforcement.
 - `network/openwrt` does not discover/redesign switch/DSA topology, multi-WAN, or GL.iNet vendor UI behavior.
 - `network/routeros` translates only a small safe common subset; DHCP/Wi-Fi/firewall can use native-path data until broader cross-version modeling is validated.
 - `network/aredn` is monitoring-only; HamStack does not own AREDN firmware or RF/mesh configuration.

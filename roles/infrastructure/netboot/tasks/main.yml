@@ -1,19 +1,125 @@
 ---
-- name: Deploy HamStack minimal HTTP netboot service
+- name: Deploy HamStack authenticated netboot service
   when: hamstack_netboot_enabled | bool
   block:
+    - name: Validate netboot TLS source paths
+      ansible.builtin.assert:
+        that:
+          - (hamstack_netboot_tls_certificate_path | default('')) is match('^/')
+          - (hamstack_netboot_tls_private_key_path | default('')) is match('^/')
+        fail_msg: >-
+          Netboot requires absolute paths to an operator-provided TLS certificate
+          and private key on the managed host.
+
+    - name: Inspect netboot TLS certificate source
+      ansible.builtin.stat:
+        path: "{{ hamstack_netboot_tls_certificate_path }}"
+        follow: true
+      register: _hamstack_netboot_tls_certificate_source
+
+    - name: Inspect netboot TLS private key source
+      ansible.builtin.stat:
+        path: "{{ hamstack_netboot_tls_private_key_path }}"
+        follow: true
+      register: _hamstack_netboot_tls_private_key_source
+
+    - name: Validate netboot TLS source files
+      ansible.builtin.assert:
+        that:
+          - _hamstack_netboot_tls_certificate_source.stat.isreg | default(false)
+          - _hamstack_netboot_tls_private_key_source.stat.isreg | default(false)
+        fail_msg: >-
+          The configured netboot TLS certificate and private key must exist as
+          regular files on the managed host.
+
+    - name: Validate signed netboot entries
+      ansible.builtin.assert:
+        that:
+          - (item.id | default('')) is match('^[A-Za-z0-9][A-Za-z0-9._-]*$')
+          - >-
+            (
+              item.chain is defined
+              and item.kernel is not defined
+              and item.initrd is not defined
+              and (item.chain | string) is match('^https://[^\s]+$')
+              and (item.chain_signature | default('') | string) is match('^https://[^\s]+$')
+            )
+            or
+            (
+              item.kernel is defined
+              and item.chain is not defined
+              and (item.kernel | string) is match('^https://[^\s]+$')
+              and (item.kernel_signature | default('') | string) is match('^https://[^\s]+$')
+              and (
+                item.initrd is not defined
+                or
+                (
+                  (item.initrd | string) is match('^https://[^\s]+$')
+                  and (item.initrd_signature | default('') | string) is match('^https://[^\s]+$')
+                )
+              )
+            )
+        fail_msg: >-
+          Each netboot entry requires a safe id and exactly one signed boot
+          mode: an HTTPS chain plus chain_signature, or an HTTPS kernel plus
+          kernel_signature and, when present, an HTTPS initrd plus
+          initrd_signature.
+      loop: "{{ hamstack_netboot_entries }}"
+      loop_control:
+        label: "{{ item.id | default('invalid entry') }}"
+
     - name: Install HamStack container runtime for netboot
       ansible.builtin.include_role:
         name: common
         tasks_from: container-runtime
 
-    - name: Create netboot content directory
+    - name: Create netboot content directories
       ansible.builtin.file:
-        path: "{{ hamstack_netboot_data_dir }}/www"
+        path: "{{ item }}"
         state: directory
         owner: root
         group: root
         mode: '0755'
+      loop:
+        - "{{ hamstack_netboot_data_dir }}/www"
+        - "{{ hamstack_netboot_data_dir }}/config"
+
+    - name: Create private netboot TLS directory
+      ansible.builtin.file:
+        path: "{{ hamstack_netboot_data_dir }}/tls"
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
+
+    - name: Copy netboot TLS certificate into managed state
+      ansible.builtin.copy:
+        src: "{{ hamstack_netboot_tls_certificate_path }}"
+        remote_src: true
+        dest: "{{ hamstack_netboot_data_dir }}/tls/server.crt"
+        owner: root
+        group: root
+        mode: '0644'
+      register: _hamstack_netboot_tls_certificate
+
+    - name: Copy netboot TLS private key into managed state
+      ansible.builtin.copy:
+        src: "{{ hamstack_netboot_tls_private_key_path }}"
+        remote_src: true
+        dest: "{{ hamstack_netboot_data_dir }}/tls/server.key"
+        owner: root
+        group: root
+        mode: '0600'
+      register: _hamstack_netboot_tls_private_key
+
+    - name: Render HamStack netboot HTTPS configuration
+      ansible.builtin.template:
+        src: nginx.conf.j2
+        dest: "{{ hamstack_netboot_data_dir }}/config/default.conf"
+        owner: root
+        group: root
+        mode: '0644'
+      register: _hamstack_netboot_nginx
 
     - name: Render HamStack iPXE menu
       ansible.builtin.template:
@@ -24,14 +130,22 @@
         mode: '0644'
       register: _hamstack_netboot_menu
 
-    - name: Run HamStack netboot HTTP container
+    - name: Run HamStack netboot HTTPS container
       community.docker.docker_container:
         name: "{{ hamstack_netboot_container_name }}"
         image: "{{ hamstack_netboot_image }}"
         state: started
         restart_policy: "{{ 'unless-stopped' if hamstack_netboot_autostart | bool else 'no' }}"
-        recreate: "{{ _hamstack_netboot_menu.changed }}"
+        recreate: >-
+          {{
+            _hamstack_netboot_menu.changed
+            or _hamstack_netboot_nginx.changed
+            or _hamstack_netboot_tls_certificate.changed
+            or _hamstack_netboot_tls_private_key.changed
+          }}
         published_ports:
-          - "{{ hamstack_netboot_bind_address }}:{{ hamstack_netboot_http_port }}:80/tcp"
+          - "{{ hamstack_netboot_bind_address }}:{{ hamstack_netboot_https_port }}:443/tcp"
         volumes:
           - "{{ hamstack_netboot_data_dir }}/www:/usr/share/nginx/html:ro"
+          - "{{ hamstack_netboot_data_dir }}/config/default.conf:/etc/nginx/conf.d/default.conf:ro"
+          - "{{ hamstack_netboot_data_dir }}/tls:/etc/nginx/tls:ro"

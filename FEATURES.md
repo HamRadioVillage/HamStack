@@ -92,7 +92,7 @@ it owns.
 | MikroTik RouterOS | `network/routeros` | Conservative backend; validate on target hardware before cutover |
 | AREDN integration | `network/aredn` | Read-only monitoring/integration |
 | Local DNS | `infrastructure/technitium-dns` | Implemented Technitium DNS deployment |
-| Basic netboot/iPXE content | `infrastructure/netboot` | HTTP/iPXE service implemented; DHCP/TFTP intentionally out of scope |
+| Basic netboot/iPXE content | `infrastructure/netboot` | TLS and signed-artifact enforcement implemented; DHCP/TFTP intentionally out of scope |
 
 Network appliances are managed through their own inventory and playbook rather
 than being treated like ordinary Debian nodes.

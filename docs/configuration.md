@@ -872,7 +872,18 @@ and network appliances.
 
 - `infrastructure/technitium-dns` deploys Technitium DNS with the default local
   namespace `hamstack.home.arpa`, configurable forwarding, and no DHCP.
-- `infrastructure/netboot` serves an HTTP/iPXE menu without running DHCP or TFTP.
+- `infrastructure/netboot` serves a TLS-only iPXE menu without running DHCP or
+  TFTP. Boot clients must trust the HTTPS certificate and the artifact-signing
+  certificate; every chain, kernel, and initrd entry requires an HTTPS URL and
+  detached signature URL.
+
+| Variable | Type | Default | Scope | Purpose |
+| --- | --- | --- | --- | --- |
+| `hamstack_netboot_entries` | list[dictionary] | `[]` | role | Signed chain or kernel/initrd entries; each executable URL has a matching detached-signature URL. |
+| `hamstack_netboot_http_port` | integer | `8089` | role | Legacy-named compatibility value used by the default HTTPS port; it does not enable plaintext HTTP. |
+| `hamstack_netboot_https_port` | integer | `hamstack_netboot_http_port` | role | Host port publishing the TLS-only netboot service. |
+| `hamstack_netboot_tls_certificate_path` | path | `""` | role | Absolute managed-host path to the operator-owned HTTPS certificate source. |
+| `hamstack_netboot_tls_private_key_path` | path | `""` | role | Absolute managed-host path to the operator-owned HTTPS private-key source. |
 
 See [profiles.md](profiles.md) for deployment compositions and
 [variables.md](variables.md) for the exhaustive generated variable index.

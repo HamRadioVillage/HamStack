@@ -5,6 +5,9 @@ hamstack_netboot_container_name: hamstack-netboot
 hamstack_netboot_data_dir: "{{ (hamstack_data_dir | default('/var/lib/hamstack')) ~ '/netboot' }}"
 hamstack_netboot_bind_address: 0.0.0.0
 hamstack_netboot_http_port: 8089
+hamstack_netboot_https_port: "{{ hamstack_netboot_http_port }}"
+hamstack_netboot_tls_certificate_path: ""
+hamstack_netboot_tls_private_key_path: ""
 hamstack_netboot_menu_title: HamStack Netboot
 hamstack_netboot_entries: []
 hamstack_netboot_autostart: true

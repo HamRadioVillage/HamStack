@@ -17,6 +17,16 @@ the binary under `/opt/hamstack/qsstv`, and exposes it as
 `/usr/local/bin/qsstv`. The distro package is removed by default so the broken
 or incompatible `/usr/bin/qsstv` cannot accidentally win path selection.
 
-The default ref is `main` because the HRV repository currently has no HamStack-
-validated release tag. Sites requiring immutable rebuilds should pin
-`hamstack_qsstv_source_ref` to a tested commit hash.
+Source checkout, qmake, make, and runtime-library inspection run as the locked
+`hamstack_qsstv_build_user` account. HamStack accepts only regular artifacts
+owned by that account, stages them without following source symlinks, verifies
+their SHA-256 digests, and then atomically moves them into root-owned install
+locations. Upstream build logic therefore does not receive root authority.
+
+The default ref remains `main` because the HRV repository currently has no
+HamStack-validated release tag, but `hamstack_qsstv_update_source` defaults to
+`false`: the branch is resolved for an initial checkout and later convergence
+does not follow it. To update an existing checkout, first review and set
+`hamstack_qsstv_source_ref` to the full 40-character commit ID, then set
+`hamstack_qsstv_update_source: true`. The role verifies that exact commit before
+building it and rejects automatic updates from branches, tags, or short IDs.

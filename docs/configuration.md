@@ -661,7 +661,10 @@ The role seeds GQRX/QSSTV configuration only when it does not already exist, so
 normal operator tuning changes survive later convergence. The internal
 `digital/qsstv-runtime` support role builds the HamRadioVillage QSSTV source and
 exposes it as `/usr/local/bin/qsstv`; it is not enabled directly from
-`site.yml`.
+`site.yml`. That helper checks out and builds as a locked system account rather
+than root. Mutable refs are not refreshed by default; automatic source updates
+require a reviewed full commit ID, and promoted artifacts are checksum-checked
+before entering root-owned install locations.
 
 <a id="role-sstv-workstation"></a>
 #### `sstv-workstation`

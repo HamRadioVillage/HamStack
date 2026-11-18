@@ -5,11 +5,20 @@
       - ansible_facts['os_family'] == 'Debian'
       - hamstack_qsstv_source_repo | length > 0
       - hamstack_qsstv_source_ref | length > 0
+      - hamstack_qsstv_build_user | length > 0
+      - hamstack_qsstv_build_group | length > 0
+      - hamstack_qsstv_build_user != 'root'
+      - hamstack_qsstv_build_group != 'root'
       - (hamstack_qsstv_build_jobs | int) > 0
+      - >-
+        not (hamstack_qsstv_update_source | bool) or
+        hamstack_qsstv_source_ref is match('^[0-9a-fA-F]{40}$')
     fail_msg: >-
       The HamStack QSSTV runtime currently builds the HamRadioVillage QSSTV
-      source tree on Debian-family systems. Configure a non-empty source repo
-      and ref and a positive build job count.
+      source tree on Debian-family systems. Configure non-empty source, build
+      account, and group values and a positive build job count. Source updates
+      require hamstack_qsstv_source_ref to be a full 40-character commit ID;
+      mutable refs are allowed only when updates are disabled.
 
 - name: Install HRV QSSTV build dependencies
   ansible.builtin.apt:
@@ -40,7 +49,33 @@
     state: absent
   when: hamstack_qsstv_remove_distro_package | bool
 
-- name: Create HRV QSSTV source, build, and install directories
+- name: Create HRV QSSTV build group
+  ansible.builtin.group:
+    name: "{{ hamstack_qsstv_build_group }}"
+    system: true
+
+- name: Create HRV QSSTV build account
+  ansible.builtin.user:
+    name: "{{ hamstack_qsstv_build_user }}"
+    group: "{{ hamstack_qsstv_build_group }}"
+    system: true
+    create_home: false
+    home: "{{ hamstack_qsstv_build_dir }}"
+    shell: /usr/sbin/nologin
+
+- name: Read HRV QSSTV build account
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ hamstack_qsstv_build_user }}"
+
+- name: Require a non-root HRV QSSTV build account
+  ansible.builtin.assert:
+    that:
+      - (ansible_facts.getent_passwd[hamstack_qsstv_build_user][1] | int) != 0
+    fail_msg: >-
+      hamstack_qsstv_build_user must resolve to a dedicated non-root account.
+
+- name: Create root-owned HRV QSSTV parent and install directories
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -49,10 +84,32 @@
     mode: '0755'
   loop:
     - "{{ hamstack_qsstv_source_dir | dirname }}"
-    - "{{ hamstack_qsstv_build_dir }}"
+    - "{{ hamstack_qsstv_build_dir | dirname }}"
     - "{{ hamstack_qsstv_install_prefix }}/bin"
     - /usr/local/share/applications
     - /usr/local/share/icons/hicolor/128x128/apps
+
+- name: Create unprivileged HRV QSSTV source and build directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ hamstack_qsstv_build_user }}"
+    group: "{{ hamstack_qsstv_build_group }}"
+    mode: '0750'
+  loop:
+    - "{{ hamstack_qsstv_source_dir }}"
+    - "{{ hamstack_qsstv_build_dir }}"
+
+- name: Migrate existing HRV QSSTV work trees to the build account
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ hamstack_qsstv_build_user }}"
+    group: "{{ hamstack_qsstv_build_group }}"
+    recurse: true
+  loop:
+    - "{{ hamstack_qsstv_source_dir }}"
+    - "{{ hamstack_qsstv_build_dir }}"
 
 - name: Check out HamRadioVillage QSSTV source
   ansible.builtin.git:
@@ -62,6 +119,36 @@
     update: "{{ hamstack_qsstv_update_source | bool }}"
     force: false
   register: _hamstack_qsstv_source
+  become: true
+  become_user: "{{ hamstack_qsstv_build_user }}"
+  environment:
+    HOME: "{{ hamstack_qsstv_build_dir }}"
+
+- name: Read checked-out HRV QSSTV commit
+  ansible.builtin.command:
+    argv:
+      - git
+      - rev-parse
+      - --verify
+      - 'HEAD^{commit}'
+    chdir: "{{ hamstack_qsstv_source_dir }}"
+  register: _hamstack_qsstv_source_head
+  changed_when: false
+  become: true
+  become_user: "{{ hamstack_qsstv_build_user }}"
+  environment:
+    HOME: "{{ hamstack_qsstv_build_dir }}"
+
+- name: Verify pinned HRV QSSTV commit was checked out
+  ansible.builtin.assert:
+    that:
+      - >-
+        (_hamstack_qsstv_source_head.stdout | lower) ==
+        (hamstack_qsstv_source_ref | lower)
+    fail_msg: >-
+      The checked-out QSSTV commit does not match the configured immutable
+      hamstack_qsstv_source_ref.
+  when: hamstack_qsstv_source_ref is match('^[0-9a-fA-F]{40}$')
 
 - name: Check installed HRV QSSTV binary
   ansible.builtin.stat:
@@ -73,6 +160,15 @@
     path: "{{ hamstack_qsstv_build_dir }}/Makefile"
   register: _hamstack_qsstv_makefile_stat
 
+- name: Determine whether HRV QSSTV must be rebuilt
+  ansible.builtin.set_fact:
+    _hamstack_qsstv_rebuild_required: >-
+      {{
+        _hamstack_qsstv_source.changed or
+        not _hamstack_qsstv_binary_stat.stat.exists or
+        not _hamstack_qsstv_makefile_stat.stat.exists
+      }}
+
 - name: Configure HRV QSSTV build with qmake
   ansible.builtin.command:
     argv:
@@ -80,12 +176,12 @@
       - "PREFIX={{ hamstack_qsstv_install_prefix }}"
       - "{{ hamstack_qsstv_source_dir }}/src"
     chdir: "{{ hamstack_qsstv_build_dir }}"
-  register: _hamstack_qsstv_qmake
   changed_when: true
-  when: >-
-    _hamstack_qsstv_source.changed or
-    not _hamstack_qsstv_binary_stat.stat.exists or
-    not _hamstack_qsstv_makefile_stat.stat.exists
+  when: _hamstack_qsstv_rebuild_required | bool
+  become: true
+  become_user: "{{ hamstack_qsstv_build_user }}"
+  environment:
+    HOME: "{{ hamstack_qsstv_build_dir }}"
 
 - name: Build HRV QSSTV
   ansible.builtin.command:
@@ -93,43 +189,35 @@
       - make
       - "-j{{ hamstack_qsstv_build_jobs | int }}"
     chdir: "{{ hamstack_qsstv_build_dir }}"
-  register: _hamstack_qsstv_make
   changed_when: true
-  when: >-
-    _hamstack_qsstv_source.changed or
-    not _hamstack_qsstv_binary_stat.stat.exists or
-    (_hamstack_qsstv_qmake is defined and _hamstack_qsstv_qmake.changed)
+  when: _hamstack_qsstv_rebuild_required | bool
+  become: true
+  become_user: "{{ hamstack_qsstv_build_user }}"
+  environment:
+    HOME: "{{ hamstack_qsstv_build_dir }}"
 
-- name: Install HRV QSSTV binary
-  ansible.builtin.copy:
-    src: "{{ hamstack_qsstv_build_dir }}/qsstv"
-    dest: "{{ hamstack_qsstv_binary }}"
-    remote_src: true
-    owner: root
-    group: root
-    mode: '0755'
-  when: >-
-    _hamstack_qsstv_source.changed or
-    not _hamstack_qsstv_binary_stat.stat.exists or
-    (_hamstack_qsstv_make is defined and _hamstack_qsstv_make.changed)
+- name: Promote verified HRV QSSTV binary
+  ansible.builtin.include_tasks: promote-artifact.yml
+  vars:
+    _hamstack_qsstv_artifact_source: "{{ hamstack_qsstv_build_dir }}/qsstv"
+    _hamstack_qsstv_artifact_destination: "{{ hamstack_qsstv_binary }}"
+    _hamstack_qsstv_artifact_mode: '0755'
+  when: _hamstack_qsstv_rebuild_required | bool
 
-- name: Install HRV QSSTV desktop entry
-  ansible.builtin.copy:
-    src: "{{ hamstack_qsstv_source_dir }}/qsstv.desktop"
-    dest: /usr/local/share/applications/qsstv.desktop
-    remote_src: true
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Install HRV QSSTV icon
-  ansible.builtin.copy:
-    src: "{{ hamstack_qsstv_source_dir }}/src/icons/qsstv.png"
-    dest: /usr/local/share/icons/hicolor/128x128/apps/qsstv.png
-    remote_src: true
-    owner: root
-    group: root
-    mode: '0644'
+- name: Promote verified HRV QSSTV shared data
+  ansible.builtin.include_tasks: promote-artifact.yml
+  vars:
+    _hamstack_qsstv_artifact_source: "{{ _hamstack_qsstv_shared_artifact.source }}"
+    _hamstack_qsstv_artifact_destination: "{{ _hamstack_qsstv_shared_artifact.destination }}"
+    _hamstack_qsstv_artifact_mode: '0644'
+  loop:
+    - source: "{{ hamstack_qsstv_source_dir }}/qsstv.desktop"
+      destination: /usr/local/share/applications/qsstv.desktop
+    - source: "{{ hamstack_qsstv_source_dir }}/src/icons/qsstv.png"
+      destination: /usr/local/share/icons/hicolor/128x128/apps/qsstv.png
+  loop_control:
+    loop_var: _hamstack_qsstv_shared_artifact
+    label: "{{ _hamstack_qsstv_shared_artifact.destination }}"
 
 - name: Expose HRV QSSTV on the system path
   ansible.builtin.file:
@@ -148,3 +236,7 @@
   failed_when: >-
     _hamstack_qsstv_ldd.rc != 0 or
     'not found' in _hamstack_qsstv_ldd.stdout
+  become: true
+  become_user: "{{ hamstack_qsstv_build_user }}"
+  environment:
+    HOME: "{{ hamstack_qsstv_build_dir }}"

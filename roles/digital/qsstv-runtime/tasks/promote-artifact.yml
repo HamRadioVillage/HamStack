@@ -1,0 +1,86 @@
+---
+- name: Inspect unprivileged HRV QSSTV artifact
+  ansible.builtin.stat:
+    path: "{{ _hamstack_qsstv_artifact_source }}"
+    follow: false
+    get_checksum: true
+    checksum_algorithm: sha256
+  register: _hamstack_qsstv_artifact_source_stat
+
+- name: Require a regular build-account-owned HRV QSSTV artifact
+  ansible.builtin.assert:
+    that:
+      - _hamstack_qsstv_artifact_source_stat.stat.exists
+      - _hamstack_qsstv_artifact_source_stat.stat.isreg
+      - not _hamstack_qsstv_artifact_source_stat.stat.islnk
+      - _hamstack_qsstv_artifact_source_stat.stat.pw_name == hamstack_qsstv_build_user
+    fail_msg: >-
+      QSSTV promotion requires a regular artifact owned by the dedicated build
+      account: {{ _hamstack_qsstv_artifact_source }}.
+
+- name: Inspect installed HRV QSSTV artifact
+  ansible.builtin.stat:
+    path: "{{ _hamstack_qsstv_artifact_destination }}"
+    follow: false
+    get_checksum: true
+    checksum_algorithm: sha256
+  register: _hamstack_qsstv_artifact_destination_stat
+
+- name: Promote changed HRV QSSTV artifact
+  when: >-
+    not _hamstack_qsstv_artifact_destination_stat.stat.exists or
+    (_hamstack_qsstv_artifact_destination_stat.stat.checksum | default('')) !=
+    _hamstack_qsstv_artifact_source_stat.stat.checksum
+  block:
+    - name: Remove stale staged HRV QSSTV artifact
+      ansible.builtin.file:
+        path: "{{ _hamstack_qsstv_artifact_destination }}.hamstack-new"
+        state: absent
+
+    - name: Stage HRV QSSTV artifact without following source symlinks
+      ansible.builtin.command:
+        argv:
+          - dd
+          - "if={{ _hamstack_qsstv_artifact_source }}"
+          - "of={{ _hamstack_qsstv_artifact_destination }}.hamstack-new"
+          - bs=1M
+          - conv=fsync
+          - iflag=nofollow
+          - status=none
+
+    - name: Inspect staged HRV QSSTV artifact
+      ansible.builtin.stat:
+        path: "{{ _hamstack_qsstv_artifact_destination }}.hamstack-new"
+        follow: false
+        get_checksum: true
+        checksum_algorithm: sha256
+      register: _hamstack_qsstv_artifact_staged_stat
+
+    - name: Verify staged HRV QSSTV artifact matches its source
+      ansible.builtin.assert:
+        that:
+          - _hamstack_qsstv_artifact_staged_stat.stat.exists
+          - _hamstack_qsstv_artifact_staged_stat.stat.isreg
+          - not _hamstack_qsstv_artifact_staged_stat.stat.islnk
+          - >-
+            _hamstack_qsstv_artifact_staged_stat.stat.checksum ==
+            _hamstack_qsstv_artifact_source_stat.stat.checksum
+        fail_msg: >-
+          Staged QSSTV artifact differs from its inspected source:
+          {{ _hamstack_qsstv_artifact_source }}.
+
+    - name: Set staged HRV QSSTV artifact ownership and mode
+      ansible.builtin.file:
+        path: "{{ _hamstack_qsstv_artifact_destination }}.hamstack-new"
+        owner: root
+        group: root
+        mode: "{{ _hamstack_qsstv_artifact_mode }}"
+
+    - name: Install verified HRV QSSTV artifact atomically
+      ansible.builtin.command:
+        argv:
+          - mv
+          - -f
+          - --
+          - "{{ _hamstack_qsstv_artifact_destination }}.hamstack-new"
+          - "{{ _hamstack_qsstv_artifact_destination }}"

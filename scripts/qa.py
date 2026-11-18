@@ -368,6 +368,66 @@ def check_repository_contract_files() -> None:
             error(f"Required repository contract file is missing: {path.relative_to(ROOT)}")
 
 
+def check_qsstv_build_boundary() -> None:
+    """Keep upstream-controlled QSSTV build logic outside root authority."""
+    defaults_path = ROOT / "roles" / "digital" / "qsstv-runtime" / "defaults" / "main.yml"
+    tasks_path = ROOT / "roles" / "digital" / "qsstv-runtime" / "tasks" / "main.yml"
+    promotion_path = ROOT / "roles" / "digital" / "qsstv-runtime" / "tasks" / "promote-artifact.yml"
+
+    if not promotion_path.exists():
+        error("QSSTV artifact promotion boundary is missing")
+        return
+
+    try:
+        defaults = yaml.load(defaults_path.read_text(encoding="utf-8"), Loader=UniqueKeyLoader) or {}
+        tasks = yaml.load(tasks_path.read_text(encoding="utf-8"), Loader=UniqueKeyLoader) or []
+        promotion_tasks = yaml.load(promotion_path.read_text(encoding="utf-8"), Loader=UniqueKeyLoader) or []
+    except Exception:
+        return  # YAML failures are reported by check_yaml.
+
+    if defaults.get("hamstack_qsstv_update_source") is not False:
+        error("QSSTV must not refresh a mutable source ref by default")
+    if defaults.get("hamstack_qsstv_build_user") == "root":
+        error("QSSTV build account must not be root")
+
+    named_tasks = {
+        task.get("name"): task
+        for task in tasks
+        if isinstance(task, dict) and isinstance(task.get("name"), str)
+    }
+    unprivileged_tasks = [
+        "Check out HamRadioVillage QSSTV source",
+        "Read checked-out HRV QSSTV commit",
+        "Configure HRV QSSTV build with qmake",
+        "Build HRV QSSTV",
+        "Verify HRV QSSTV runtime libraries resolve",
+    ]
+    for name in unprivileged_tasks:
+        task = named_tasks.get(name, {})
+        if task.get("become") is not True or task.get("become_user") != "{{ hamstack_qsstv_build_user }}":
+            error(f"QSSTV task must run as the dedicated build account: {name}")
+
+    validation = named_tasks.get("Validate HRV QSSTV source-build inputs", {})
+    assertions = validation.get("ansible.builtin.assert", {}).get("that", [])
+    if not any("^[0-9a-fA-F]{40}$" in str(assertion) for assertion in assertions):
+        error("QSSTV source updates must require a full immutable commit ID")
+
+    named_promotion_tasks = {
+        task.get("name"): task
+        for task in _iter_tasks(promotion_tasks)
+        if isinstance(task, dict) and isinstance(task.get("name"), str)
+    }
+    staging = named_promotion_tasks.get("Stage HRV QSSTV artifact without following source symlinks", {})
+    staging_argv = staging.get("ansible.builtin.command", {}).get("argv", [])
+    if "iflag=nofollow" not in staging_argv:
+        error("QSSTV artifact staging must reject source symlinks")
+
+    verification = named_promotion_tasks.get("Verify staged HRV QSSTV artifact matches its source", {})
+    verification_assertions = verification.get("ansible.builtin.assert", {}).get("that", [])
+    if not any("checksum" in str(assertion) for assertion in verification_assertions):
+        error("QSSTV staged artifact must match its inspected source")
+
+
 def main() -> int:
     check_yaml()
     check_jinja()
@@ -383,6 +443,7 @@ def main() -> int:
     check_published_port_defaults()
     check_vault_contract()
     check_repository_contract_files()
+    check_qsstv_build_boundary()
     if ERRORS:
         print(f"\nHamStack QA failed with {len(ERRORS)} error(s).")
         return 1

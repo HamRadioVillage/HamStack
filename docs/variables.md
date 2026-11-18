@@ -218,14 +218,16 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | --- | --- | --- |
 | `hamstack_qsstv_binary` | `/opt/hamstack/qsstv/bin/qsstv` | Configuration value for qsstv binary; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_build_dir` | `/var/cache/hamstack/qsstv-build` | Configuration value for qsstv build dir; see the digital/qsstv-runtime role README for operational context. |
+| `hamstack_qsstv_build_group` | `hamstack-qsstv-build` | Configuration value for qsstv build group; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_build_jobs` | `2` | Configuration value for qsstv build jobs; see the digital/qsstv-runtime role README for operational context. |
+| `hamstack_qsstv_build_user` | `hamstack-qsstv-build` | Configuration value for qsstv build user; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_install_prefix` | `/opt/hamstack/qsstv` | Configuration value for qsstv install prefix; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_launcher` | `/usr/local/bin/qsstv` | Configuration value for qsstv launcher; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_remove_distro_package` | `true` | Configuration value for qsstv remove distro package; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_source_dir` | `/opt/hamstack/qsstv-source` | Configuration value for qsstv source dir; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_source_ref` | `main` | Configuration value for qsstv source ref; see the digital/qsstv-runtime role README for operational context. |
 | `hamstack_qsstv_source_repo` | `https://github.com/HamRadioVillage/QSSTV.git` | Configuration value for qsstv source repo; see the digital/qsstv-runtime role README for operational context. |
-| `hamstack_qsstv_update_source` | `true` | Configuration value for qsstv update source; see the digital/qsstv-runtime role README for operational context. |
+| `hamstack_qsstv_update_source` | `false` | Configuration value for qsstv update source; see the digital/qsstv-runtime role README for operational context. |
 
 ## `digital/selfie_station`
 

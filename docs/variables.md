@@ -542,7 +542,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_graywolf_manage_api` | `false` | Converge Graywolf operational state through its REST API. |
 | `hamstack_graywolf_manage_first_user` | `true` | Create the first Graywolf management user on an unconfigured node. |
 | `hamstack_graywolf_manage_station` | `true` | Converge Graywolf's station callsign. |
-| `hamstack_graywolf_package_checksum` | `` | Optional `sha256:<digest>` verified before the package is installed. |
+| `hamstack_graywolf_package_checksum` | `` | Required reviewed `sha256:<digest>` when package installation is enabled. |
 | `hamstack_graywolf_package_url` | `` | Optional direct `.deb` URL (HTTPS), bypassing release discovery. |
 | `hamstack_graywolf_password` | `{{   vault_hamstack_graywolf_password   \| default(vault_hamstack_aprs_graywolf_password \| default('')) }}` | Management password; prefer `vault_hamstack_graywolf_password`. |
 | `hamstack_graywolf_username` | `hamstack` | Management account used by automation. |
@@ -818,7 +818,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | `hamstack_gridtracker_install` | `true` | Install a Debian package. |
 | `hamstack_gridtracker_logging_backend` | `` | Configuration value for gridtracker logging backend; see the visual/gridtracker role README for operational context. |
 | `hamstack_gridtracker_logging_url` | `` | Configuration value for gridtracker logging url; see the visual/gridtracker role README for operational context. |
-| `hamstack_gridtracker_package_checksum` | `` | Optional `sha256:<digest>` verified before the package is installed. |
+| `hamstack_gridtracker_package_checksum` | `` | Required reviewed `sha256:<digest>` when package installation is enabled. |
 | `hamstack_gridtracker_package_url` | `` | Explicit package override (HTTPS). |
 | `hamstack_gridtracker_version` | `2.260925.2` | Tested default or another pinned upstream version. |
 | `hamstack_gridtracker_wsjtx_host` | `127.0.0.1` | Reserved WSJT-X input host setting. |

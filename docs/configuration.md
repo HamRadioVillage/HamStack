@@ -337,7 +337,7 @@ The Graywolf KISS→AX.25 session→ENiGMA shim is planned but not part of the c
 | `hamstack_graywolf_install` | boolean | `true` | role | Install the supported upstream Debian package. |
 | `hamstack_graywolf_version` | string | `latest` | role | Release to install, or a pinned upstream version. |
 | `hamstack_graywolf_package_url` | string | `""` | role | Optional direct `.deb` URL (HTTPS), bypassing release discovery. |
-| `hamstack_graywolf_package_checksum` | string | `""` | role | Optional `sha256:<digest>` verified before the package is installed. |
+| `hamstack_graywolf_package_checksum` | string | `""` | role | Required reviewed `sha256:<digest>` when package installation is enabled. |
 | `hamstack_graywolf_autostart` | boolean | `true` | role | Enable/start the Graywolf systemd service. |
 | `hamstack_graywolf_manage_api` | boolean | `false` | role | Converge Graywolf operational state through its REST API. |
 | `hamstack_graywolf_api_url` | URL | `http://127.0.0.1:8080/api` | role | Graywolf management API base. |
@@ -356,6 +356,9 @@ Graywolf API management is intentionally independent of `packet/aprs`. A host ma
 Example packet-only modem configuration:
 
 ```yaml
+# Replace this intentionally fake digest with the reviewed package SHA-256.
+hamstack_graywolf_package_checksum: >-
+  sha256:0000000000000000000000000000000000000000000000000000000000000000
 hamstack_graywolf_manage_api: true
 
 hamstack_graywolf_audio_devices:
@@ -555,12 +558,15 @@ workflows. See `docs/variables.md` for the complete variables.
 | `hamstack_gridtracker_install` | boolean | `true` | role | Install a Debian package. |
 | `hamstack_gridtracker_version` | string | `2.260925.2` | role | Tested default or another pinned upstream version. |
 | `hamstack_gridtracker_package_url` | URL | `""` | role | Explicit package override (HTTPS). |
-| `hamstack_gridtracker_package_checksum` | string | `""` | role | Optional `sha256:<digest>` verified before the package is installed. |
+| `hamstack_gridtracker_package_checksum` | string | `""` | role | Required reviewed `sha256:<digest>` when package installation is enabled. |
 | `hamstack_gridtracker_wsjtx_host` | string | `127.0.0.1` | role | Reserved WSJT-X input host setting. |
 | `hamstack_gridtracker_wsjtx_port` | integer | `2237` | role | Reserved WSJT-X UDP port. |
 | `hamstack_gridtracker_autostart` | boolean | `false` | role | Add XDG autostart for the operator user. |
 
 Supported packages are available for amd64 and arm64 Debian-family systems.
+Package installation fails closed until the selected package has a reviewed
+SHA-256 digest. Set `hamstack_gridtracker_install: false` to manage autostart
+for a package installed through a separate trusted process.
 
 <a id="role-openhamclock"></a>
 #### `openhamclock`

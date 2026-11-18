@@ -705,6 +705,7 @@ This is the exhaustive index of `hamstack_*` variables currently declared by the
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `hamstack_dcdash_admin_username` | `admin` | Configuration value for dcdash admin username; see the services/dcdash role README for operational context. |
+| `hamstack_dcdash_application_dir` | `/usr/local/lib/dcdash` | Configuration value for dcdash application dir; see the services/dcdash role README for operational context. |
 | `hamstack_dcdash_autostart` | `true` | Enable/start the managed service or desktop autostart entry. |
 | `hamstack_dcdash_backup_dir` | `{{ hamstack_dcdash_install_dir }}/backups` | Configuration value for dcdash backup dir; see the services/dcdash role README for operational context. |
 | `hamstack_dcdash_bind_address` | `0.0.0.0` | Address on which the managed service binds. |

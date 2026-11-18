@@ -77,6 +77,9 @@ hamstack_radios:
 #
 # Graywolf can be used independently of packet/aprs as a modem/TNC/KISS layer.
 # hamstack_graywolf_enabled: true
+# Replace this intentionally fake digest with the reviewed package SHA-256.
+# hamstack_graywolf_package_checksum: >-
+#   sha256:0000000000000000000000000000000000000000000000000000000000000000
 # hamstack_graywolf_manage_api: true
 # hamstack_graywolf_audio_devices:
 #   - name: packet_rx

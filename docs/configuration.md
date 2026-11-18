@@ -472,10 +472,17 @@ Deploys DCDash from an operator-selected git repository/ref into a Python
 virtual environment with an application-scoped hardened systemd unit. DCDash
 uses its native TLS service and public `/health` endpoint.
 
+Source and virtualenv executables are kept under the root-owned
+`hamstack_dcdash_application_dir` (default `/usr/local/lib/dcdash`). The service
+account receives write access only to the database, report, backup, and
+certificate paths derived from `hamstack_dcdash_install_dir` by default. The
+trusted application directory must not overlap those runtime-writable paths.
+
 ```yaml
 hamstack_dcdash_enabled: true
 hamstack_dcdash_source_repo: "https://example.invalid/dcdash.git"
 hamstack_dcdash_source_ref: main
+hamstack_dcdash_application_dir: /usr/local/lib/dcdash
 hamstack_dcdash_port: 8450
 ```
 

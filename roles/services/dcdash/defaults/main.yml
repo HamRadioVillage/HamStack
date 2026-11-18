@@ -4,6 +4,7 @@ hamstack_dcdash_source_mode: git
 hamstack_dcdash_source_repo: ''
 hamstack_dcdash_source_ref: main
 hamstack_dcdash_install_dir: /opt/dcdash
+hamstack_dcdash_application_dir: /usr/local/lib/dcdash
 hamstack_dcdash_user: dcdash
 hamstack_dcdash_group: dcdash
 hamstack_dcdash_bind_address: 0.0.0.0

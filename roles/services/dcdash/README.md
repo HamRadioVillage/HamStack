@@ -16,4 +16,12 @@ The application source remains separate from HamStack. Point
 `hamstack_dcdash_source_repo` at the desired DCDash git repository/ref and put
 `vault_hamstack_dcdash_admin_password` in the local Vault.
 
+HamStack keeps the executable source and Python virtual environment beneath the
+root-owned `hamstack_dcdash_application_dir`. The `dcdash` service account can
+read that tree but cannot modify it. `hamstack_dcdash_install_dir` remains the
+default persistent runtime-data root for the database, reports, backups, and
+certificates, and the systemd unit grants write access only to those configured
+runtime paths. The role rejects configurations where the trusted application
+directory overlaps a runtime-writable path.
+
 The role verifies the application's public `/health` endpoint after startup.

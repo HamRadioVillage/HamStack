@@ -7,10 +7,13 @@
         that:
           - hamstack_dcdash_source_mode == 'git'
           - hamstack_dcdash_source_repo | length > 0
+          - hamstack_dcdash_application_dir.startswith('/')
+          - hamstack_dcdash_application_dir | regex_replace('/+$', '') | length > 1
           - vault_hamstack_dcdash_admin_password | default('') | length >= 12
         fail_msg: >-
           DCDash currently expects a git source repository and a Vault-backed
-          admin password of at least 12 characters.
+          admin password of at least 12 characters. Its trusted application
+          directory must be an absolute path other than the filesystem root.
 
     - name: Install DCDash build/runtime prerequisites
       ansible.builtin.apt:
@@ -44,6 +47,42 @@
           DCDash 2.9 requires Python 3.11 or 3.12; this host reports
           {{ _hamstack_dcdash_python_version.stdout }}.
 
+    - name: Resolve DCDash trusted and runtime paths
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - >-
+            import json, os, sys;
+            print(json.dumps([os.path.realpath(path) for path in sys.argv[1:]]))
+          - "{{ hamstack_dcdash_application_dir }}"
+          - "{{ hamstack_dcdash_install_dir }}"
+          - "{{ hamstack_dcdash_db_path | dirname }}"
+          - "{{ hamstack_dcdash_reports_dir }}"
+          - "{{ hamstack_dcdash_backup_dir }}"
+          - "{{ hamstack_dcdash_cert_file | dirname }}"
+          - "{{ hamstack_dcdash_key_file | dirname }}"
+      register: _hamstack_dcdash_resolved_paths
+      changed_when: false
+
+    - name: Validate DCDash trusted application boundary
+      ansible.builtin.assert:
+        that:
+          - _hamstack_dcdash_application_path != '/'
+          - item != '/'
+          - _hamstack_dcdash_application_path != item
+          - not _hamstack_dcdash_application_path.startswith(item + '/')
+          - not item.startswith(_hamstack_dcdash_application_path + '/')
+        fail_msg: >-
+          hamstack_dcdash_application_dir must not overlap any DCDash
+          runtime-writable path after resolving aliases and symbolic links.
+      loop: "{{ (_hamstack_dcdash_resolved_paths.stdout | from_json)[1:] }}"
+      loop_control:
+        label: "{{ item }}"
+      vars:
+        _hamstack_dcdash_application_path: >-
+          {{ (_hamstack_dcdash_resolved_paths.stdout | from_json)[0] }}
+
     - name: Create DCDash service group
       ansible.builtin.group:
         name: "{{ hamstack_dcdash_group }}"
@@ -58,7 +97,45 @@
         home: "{{ hamstack_dcdash_install_dir }}"
         create_home: false
 
-    - name: Create DCDash install directory
+    - name: Inspect existing DCDash trusted application paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+        follow: false
+        get_attributes: false
+        get_checksum: false
+        get_mime: false
+      loop:
+        - "{{ hamstack_dcdash_application_dir }}"
+        - "{{ hamstack_dcdash_application_dir }}/source"
+        - "{{ hamstack_dcdash_application_dir }}/venv"
+      register: _hamstack_dcdash_trusted_paths
+
+    - name: Refuse unsafe DCDash trusted application paths
+      ansible.builtin.assert:
+        that:
+          - not item.stat.exists or item.stat.isdir
+          - not item.stat.exists or item.stat.uid == 0
+          - not item.stat.exists or item.stat.mode[-2] not in ['2', '3', '6', '7']
+          - not item.stat.exists or item.stat.mode[-1] not in ['2', '3', '6', '7']
+        fail_msg: >-
+          Refusing to process {{ item.item }} with privileged Git or pip because
+          it is not a root-owned directory protected from non-root writes.
+      loop: "{{ _hamstack_dcdash_trusted_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Create DCDash trusted application directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ hamstack_dcdash_application_dir }}"
+        - "{{ hamstack_dcdash_application_dir }}/source"
+
+    - name: Create DCDash runtime root
       ansible.builtin.file:
         path: "{{ hamstack_dcdash_install_dir }}"
         state: directory
@@ -69,7 +146,7 @@
     - name: Check out DCDash source
       ansible.builtin.git:
         repo: "{{ hamstack_dcdash_source_repo }}"
-        dest: "{{ hamstack_dcdash_install_dir }}"
+        dest: "{{ hamstack_dcdash_application_dir }}/source"
         version: "{{ hamstack_dcdash_source_ref }}"
         update: true
         force: false
@@ -91,17 +168,18 @@
 
     - name: Install DCDash Python environment
       ansible.builtin.pip:
-        name: "{{ hamstack_dcdash_install_dir }}"
-        virtualenv: "{{ hamstack_dcdash_install_dir }}/.venv"
+        name: "{{ hamstack_dcdash_application_dir }}/source"
+        virtualenv: "{{ hamstack_dcdash_application_dir }}/venv"
         virtualenv_command: "python3 -m venv"
         state: present
       register: _hamstack_dcdash_python
 
-    - name: Correct DCDash source ownership
+    - name: Keep DCDash application tree root-owned
       ansible.builtin.file:
-        path: "{{ hamstack_dcdash_install_dir }}"
-        owner: "{{ hamstack_dcdash_user }}"
-        group: "{{ hamstack_dcdash_group }}"
+        path: "{{ hamstack_dcdash_application_dir }}"
+        owner: root
+        group: root
+        mode: "u=rwX,g=rX,o=rX"
         recurse: true
 
     - name: Render DCDash environment file

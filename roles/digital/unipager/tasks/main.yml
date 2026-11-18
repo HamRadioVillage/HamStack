@@ -8,6 +8,16 @@
           - ansible_facts['os_family'] == 'Debian'
         fail_msg: UniPager installation supports Debian/Raspbian family systems.
 
+    - name: Validate UniPager repository trust anchor
+      ansible.builtin.assert:
+        that:
+          - hamstack_unipager_repo_key_checksum is match('^sha256:[0-9A-Fa-f]{64}$')
+        fail_msg: >-
+          UniPager installation requires
+          hamstack_unipager_repo_key_checksum=sha256:<64-hex-digest>, verified
+          independently of hamstack_unipager_repo_key_url.
+      when: hamstack_unipager_install | bool
+
     - name: Install UniPager repository prerequisites
       ansible.builtin.apt:
         name:
@@ -23,6 +33,7 @@
       ansible.builtin.get_url:
         url: "{{ hamstack_unipager_repo_key_url }}"
         dest: /usr/share/keyrings/unipager.asc
+        checksum: "{{ hamstack_unipager_repo_key_checksum }}"
         mode: '0644'
       when: hamstack_unipager_install | bool
 
